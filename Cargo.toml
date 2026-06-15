@@ -1,0 +1,12 @@
+[package]
+name = "dualsense-controller"
+version = "0.1.0"
+edition = "2024"
+keywords = ["sony", "playstation", "dualsense"]
+
+[dependencies]
+thiserror = "2.0.18"
+zerocopy = { version = "0.8.48", features = ["derive"] }
+hidapi = "2.6.5"
+crossbeam-channel = "0.5.15"
+crc32fast = "1.5.0"
