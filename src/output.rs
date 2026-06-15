@@ -679,8 +679,13 @@ impl DualSenseOutputReportBT {
         // 1. Feed the mandatory Bluetooth initialization seed
         hasher.update(&[PS_OUTPUT_CRC32_SEED]);
 
-        // 2. Feed the actual 74 bytes of the report payload (Bytes 0 through 73)
-        hasher.update(&self.as_bytes()[..75]);
+        // 2. Feed the payload bytes (everything except the final 4-byte CRC field)
+        // Compute payload length programmatically to avoid off-by-one errors.
+        let total_len = std::mem::size_of::<Self>();
+        let crc_len = std::mem::size_of::<u32>();
+        let payload_len = total_len - crc_len;
+        hasher.update(&self.as_bytes()[..payload_len]);
+
         self.crc32 = hasher.finalize();
     }
 }
