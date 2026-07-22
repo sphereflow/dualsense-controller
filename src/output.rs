@@ -607,7 +607,6 @@ const DEFAULT_FLAGS_1: u8 = FLAGS1_ENABLE_RUMBLE_EMULATION
 const DEFAULT_FLAGS_2: u8 = FLAGS2_ALLOW_MUTE_LIGHT
     | FLAGS2_ALLOW_AUDIO_MUTE
     | FLAGS2_ALLOW_LED_COLOR
-    | FLAGS2_RESET_LIGHTS
     | FLAGS2_ALLOW_PLAYER_INDICATORS
     | FLAGS2_ALLOW_HAPTIC_LOW_PASS
     | FLAGS2_ALLOW_MOTOR_POWER_LEVEL
@@ -785,5 +784,28 @@ mod tests {
         d.set_rumble_motor_power_reduction(255);
         assert_eq!(d.get_trigger_motor_power_reduction(), 7);
         assert_eq!(d.get_rumble_motor_power_reduction(), 7);
+    }
+
+    #[test]
+    fn get_set_enable_rumble_emulation() {
+        let mut out = DualSenseOutput::default();
+        assert!(out.enable_rumble_emulation());
+        out.set_enable_rumble_emulation(false);
+        assert!(!out.enable_rumble_emulation());
+        out.set_enable_rumble_emulation(true);
+        assert!(out.enable_rumble_emulation());
+    }
+
+    #[test]
+    fn get_set_use_rumble_no_haptics() {
+        let mut out = DualSenseOutput::default();
+        assert!(out.use_rumble_no_haptics());
+        assert!(out.enable_rumble_emulation());
+        out.set_use_rumble_no_haptics(false);
+        assert!(!out.use_rumble_no_haptics());
+        assert!(out.enable_rumble_emulation());
+        out.set_use_rumble_no_haptics(true);
+        assert!(out.use_rumble_no_haptics());
+        assert!(out.enable_rumble_emulation());
     }
 }
