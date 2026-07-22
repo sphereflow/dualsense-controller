@@ -1,3 +1,4 @@
+use bitflags::bitflags;
 use crc32fast::Hasher;
 use zerocopy::{FromZeros, Immutable, IntoBytes};
 
@@ -50,183 +51,216 @@ pub struct DualSenseOutput {
     pub lightbar_blue: u8,        // 46
 }
 
+bitflags! {
+    /// Flags corresponding to `flags_1` field in DualSenseOutput
+    pub struct Flags1: u8 {
+        const ENABLE_RUMBLE_EMULATION    = 0x01;
+        const USE_RUMBLE_NO_HAPTICS      = 0x02;
+        const ALLOW_RIGHT_TRIGGER_FFB    = 0x04;
+        const ALLOW_LEFT_TRIGGER_FFB     = 0x08;
+        const ALLOW_HEADPHONE_VOLUME     = 0x10;
+        const ALLOW_SPEAKER_VOLUME       = 0x20;
+        const ALLOW_MIC_VOLUME           = 0x40;
+        const ALLOW_AUDIO_CONTROL_1      = 0x80;
+    }
+}
+
+bitflags! {
+    /// Flags corresponding to `flags_2` field in DualSenseOutput
+    pub struct Flags2: u8 {
+        const ALLOW_MUTE_LIGHT           = 0x01;
+        const ALLOW_AUDIO_MUTE           = 0x02;
+        const ALLOW_LED_COLOR            = 0x04;
+        const RESET_LIGHTS               = 0x08;
+        const ALLOW_PLAYER_INDICATORS    = 0x10;
+        const ALLOW_HAPTIC_LOW_PASS      = 0x20;
+        const ALLOW_MOTOR_POWER_LEVEL    = 0x40;
+        const ALLOW_AUDIO_CONTROL_2      = 0x80;
+    }
+}
+
+bitflags! {
+    /// Flags corresponding to `flags_3` field in DualSenseOutput
+    pub struct Flags3: u8 {
+        const ALLOW_LIGHT_BRIGHTNESS_CHANGE = 0x01;
+        const ALLOW_COLOR_LIGHT_FADE        = 0x02;
+        const ENABLE_IMPROVED_RUMBLE        = 0x04;
+    }
+}
+
+bitflags! {
+    /// Flags corresponding to `power_save_mute_control` field
+    pub struct PowerSaveMute: u8 {
+        const POWER_SAVE_TOUCH  = 0x01;
+        const POWER_SAVE_MOTION = 0x02;
+        const POWER_SAVE_HAPTIC = 0x04;
+        const POWER_SAVE_AUDIO  = 0x08;
+        const MUTE_MIC          = 0x10;
+        const MUTE_SPEAKER      = 0x20;
+        const MUTE_HEADPHONE    = 0x40;
+        const MUTE_HAPTIC       = 0x80;
+    }
+}
+
 impl DualSenseOutput {
     // --- Flags 1 (LSB first) ---
+    pub fn flags1(&self) -> Flags1 {
+        Flags1::from_bits_truncate(self.flags_1)
+    }
+    pub fn set_flags1(&mut self, f: Flags1) {
+        self.flags_1 = f.bits();
+    }
+
     pub fn enable_rumble_emulation(&self) -> bool {
-        (self.flags_1 & 0x01) != 0
+        self.flags1().contains(Flags1::ENABLE_RUMBLE_EMULATION)
     }
     pub fn set_enable_rumble_emulation(&mut self, on: bool) {
-        if on {
-            self.flags_1 |= 0x01
-        } else {
-            self.flags_1 &= !0x01
-        }
+        let mut f = self.flags1();
+        f.set(Flags1::ENABLE_RUMBLE_EMULATION, on);
+        self.set_flags1(f);
     }
 
     pub fn use_rumble_no_haptics(&self) -> bool {
-        (self.flags_1 & 0x02) != 0
+        self.flags1().contains(Flags1::USE_RUMBLE_NO_HAPTICS)
     }
     pub fn set_use_rumble_no_haptics(&mut self, on: bool) {
-        if on {
-            self.flags_1 |= 0x02
-        } else {
-            self.flags_1 &= !0x02
-        }
+        let mut f = self.flags1();
+        f.set(Flags1::USE_RUMBLE_NO_HAPTICS, on);
+        self.set_flags1(f);
     }
 
     pub fn allow_right_trigger_ffb(&self) -> bool {
-        (self.flags_1 & 0x04) != 0
+        self.flags1().contains(Flags1::ALLOW_RIGHT_TRIGGER_FFB)
     }
     pub fn set_allow_right_trigger_ffb(&mut self, on: bool) {
-        if on {
-            self.flags_1 |= 0x04
-        } else {
-            self.flags_1 &= !0x04
-        }
+        let mut f = self.flags1();
+        f.set(Flags1::ALLOW_RIGHT_TRIGGER_FFB, on);
+        self.set_flags1(f);
     }
 
     pub fn allow_left_trigger_ffb(&self) -> bool {
-        (self.flags_1 & 0x08) != 0
+        self.flags1().contains(Flags1::ALLOW_LEFT_TRIGGER_FFB)
     }
     pub fn set_allow_left_trigger_ffb(&mut self, on: bool) {
-        if on {
-            self.flags_1 |= 0x08
-        } else {
-            self.flags_1 &= !0x08
-        }
+        let mut f = self.flags1();
+        f.set(Flags1::ALLOW_LEFT_TRIGGER_FFB, on);
+        self.set_flags1(f);
     }
 
     pub fn allow_headphone_volume(&self) -> bool {
-        (self.flags_1 & 0x10) != 0
+        self.flags1().contains(Flags1::ALLOW_HEADPHONE_VOLUME)
     }
     pub fn set_allow_headphone_volume(&mut self, on: bool) {
-        if on {
-            self.flags_1 |= 0x10
-        } else {
-            self.flags_1 &= !0x10
-        }
+        let mut f = self.flags1();
+        f.set(Flags1::ALLOW_HEADPHONE_VOLUME, on);
+        self.set_flags1(f);
     }
 
     pub fn allow_speaker_volume(&self) -> bool {
-        (self.flags_1 & 0x20) != 0
+        self.flags1().contains(Flags1::ALLOW_SPEAKER_VOLUME)
     }
     pub fn set_allow_speaker_volume(&mut self, on: bool) {
-        if on {
-            self.flags_1 |= 0x20
-        } else {
-            self.flags_1 &= !0x20
-        }
+        let mut f = self.flags1();
+        f.set(Flags1::ALLOW_SPEAKER_VOLUME, on);
+        self.set_flags1(f);
     }
 
     pub fn allow_mic_volume(&self) -> bool {
-        (self.flags_1 & 0x40) != 0
+        self.flags1().contains(Flags1::ALLOW_MIC_VOLUME)
     }
     pub fn set_allow_mic_volume(&mut self, on: bool) {
-        if on {
-            self.flags_1 |= 0x40
-        } else {
-            self.flags_1 &= !0x40
-        }
+        let mut f = self.flags1();
+        f.set(Flags1::ALLOW_MIC_VOLUME, on);
+        self.set_flags1(f);
     }
 
     pub fn allow_audio_control_1(&self) -> bool {
-        (self.flags_1 & 0x80) != 0
+        self.flags1().contains(Flags1::ALLOW_AUDIO_CONTROL_1)
     }
     pub fn set_allow_audio_control_1(&mut self, on: bool) {
-        if on {
-            self.flags_1 |= 0x80
-        } else {
-            self.flags_1 &= !0x80
-        }
+        let mut f = self.flags1();
+        f.set(Flags1::ALLOW_AUDIO_CONTROL_1, on);
+        self.set_flags1(f);
     }
 
     // --- Flags 2 (LSB first) ---
+    pub fn flags2(&self) -> Flags2 {
+        Flags2::from_bits_truncate(self.flags_2)
+    }
+    pub fn set_flags2(&mut self, f: Flags2) {
+        self.flags_2 = f.bits();
+    }
+
     pub fn allow_mute_light(&self) -> bool {
-        (self.flags_2 & 0x01) != 0
+        self.flags2().contains(Flags2::ALLOW_MUTE_LIGHT)
     }
     pub fn set_allow_mute_light(&mut self, on: bool) {
-        if on {
-            self.flags_2 |= 0x01
-        } else {
-            self.flags_2 &= !0x01
-        }
+        let mut f = self.flags2();
+        f.set(Flags2::ALLOW_MUTE_LIGHT, on);
+        self.set_flags2(f);
     }
 
     pub fn allow_audio_mute(&self) -> bool {
-        (self.flags_2 & 0x02) != 0
+        self.flags2().contains(Flags2::ALLOW_AUDIO_MUTE)
     }
     pub fn set_allow_audio_mute(&mut self, on: bool) {
-        if on {
-            self.flags_2 |= 0x02
-        } else {
-            self.flags_2 &= !0x02
-        }
+        let mut f = self.flags2();
+        f.set(Flags2::ALLOW_AUDIO_MUTE, on);
+        self.set_flags2(f);
     }
 
     pub fn allow_led_color(&self) -> bool {
-        (self.flags_2 & 0x04) != 0
+        self.flags2().contains(Flags2::ALLOW_LED_COLOR)
     }
     pub fn set_allow_led_color(&mut self, on: bool) {
-        if on {
-            self.flags_2 |= 0x04
-        } else {
-            self.flags_2 &= !0x04
-        }
+        let mut f = self.flags2();
+        f.set(Flags2::ALLOW_LED_COLOR, on);
+        self.set_flags2(f);
     }
 
     pub fn reset_lights(&self) -> bool {
-        (self.flags_2 & 0x08) != 0
+        self.flags2().contains(Flags2::RESET_LIGHTS)
     }
     pub fn set_reset_lights(&mut self, on: bool) {
-        if on {
-            self.flags_2 |= 0x08
-        } else {
-            self.flags_2 &= !0x08
-        }
+        let mut f = self.flags2();
+        f.set(Flags2::RESET_LIGHTS, on);
+        self.set_flags2(f);
     }
 
     pub fn allow_player_indicators(&self) -> bool {
-        (self.flags_2 & 0x10) != 0
+        self.flags2().contains(Flags2::ALLOW_PLAYER_INDICATORS)
     }
     pub fn set_allow_player_indicators(&mut self, on: bool) {
-        if on {
-            self.flags_2 |= 0x10
-        } else {
-            self.flags_2 &= !0x10
-        }
+        let mut f = self.flags2();
+        f.set(Flags2::ALLOW_PLAYER_INDICATORS, on);
+        self.set_flags2(f);
     }
 
     pub fn allow_haptic_low_pass_filter_flag(&self) -> bool {
-        (self.flags_2 & 0x20) != 0
+        self.flags2().contains(Flags2::ALLOW_HAPTIC_LOW_PASS)
     }
     pub fn set_allow_haptic_low_pass_filter_flag(&mut self, on: bool) {
-        if on {
-            self.flags_2 |= 0x20
-        } else {
-            self.flags_2 &= !0x20
-        }
+        let mut f = self.flags2();
+        f.set(Flags2::ALLOW_HAPTIC_LOW_PASS, on);
+        self.set_flags2(f);
     }
 
     pub fn allow_motor_power_level_flag(&self) -> bool {
-        (self.flags_2 & 0x40) != 0
+        self.flags2().contains(Flags2::ALLOW_MOTOR_POWER_LEVEL)
     }
     pub fn set_allow_motor_power_level_flag(&mut self, on: bool) {
-        if on {
-            self.flags_2 |= 0x40
-        } else {
-            self.flags_2 &= !0x40
-        }
+        let mut f = self.flags2();
+        f.set(Flags2::ALLOW_MOTOR_POWER_LEVEL, on);
+        self.set_flags2(f);
     }
 
     pub fn allow_audio_control_2(&self) -> bool {
-        (self.flags_2 & 0x80) != 0
+        self.flags2().contains(Flags2::ALLOW_AUDIO_CONTROL_2)
     }
     pub fn set_allow_audio_control_2(&mut self, on: bool) {
-        if on {
-            self.flags_2 |= 0x80
-        } else {
-            self.flags_2 &= !0x80
-        }
+        let mut f = self.flags2();
+        f.set(Flags2::ALLOW_AUDIO_CONTROL_2, on);
+        self.set_flags2(f);
     }
 
     // --- Rumble / Volumes ---
@@ -324,92 +358,89 @@ impl DualSenseOutput {
     }
 
     // --- Power save / Mute control (LSB first) ---
+    pub fn power_save_flags(&self) -> PowerSaveMute {
+        PowerSaveMute::from_bits_truncate(self.power_save_mute_control)
+    }
+    pub fn set_power_save_flags(&mut self, f: PowerSaveMute) {
+        self.power_save_mute_control = f.bits();
+    }
+
     pub fn power_save_touch(&self) -> bool {
-        (self.power_save_mute_control & 0x01) != 0
+        self.power_save_flags()
+            .contains(PowerSaveMute::POWER_SAVE_TOUCH)
     }
     pub fn set_power_save_touch(&mut self, on: bool) {
-        if on {
-            self.power_save_mute_control |= 0x01
-        } else {
-            self.power_save_mute_control &= !0x01
-        }
+        let mut f = self.power_save_flags();
+        f.set(PowerSaveMute::POWER_SAVE_TOUCH, on);
+        self.set_power_save_flags(f);
     }
 
     pub fn power_save_motion(&self) -> bool {
-        (self.power_save_mute_control & 0x02) != 0
+        self.power_save_flags()
+            .contains(PowerSaveMute::POWER_SAVE_MOTION)
     }
     pub fn set_power_save_motion(&mut self, on: bool) {
-        if on {
-            self.power_save_mute_control |= 0x02
-        } else {
-            self.power_save_mute_control &= !0x02
-        }
+        let mut f = self.power_save_flags();
+        f.set(PowerSaveMute::POWER_SAVE_MOTION, on);
+        self.set_power_save_flags(f);
     }
 
     pub fn power_save_haptic(&self) -> bool {
-        (self.power_save_mute_control & 0x04) != 0
+        self.power_save_flags()
+            .contains(PowerSaveMute::POWER_SAVE_HAPTIC)
     }
     pub fn set_power_save_haptic(&mut self, on: bool) {
-        if on {
-            self.power_save_mute_control |= 0x04
-        } else {
-            self.power_save_mute_control &= !0x04
-        }
+        let mut f = self.power_save_flags();
+        f.set(PowerSaveMute::POWER_SAVE_HAPTIC, on);
+        self.set_power_save_flags(f);
     }
 
     pub fn power_save_audio(&self) -> bool {
-        (self.power_save_mute_control & 0x08) != 0
+        self.power_save_flags()
+            .contains(PowerSaveMute::POWER_SAVE_AUDIO)
     }
     pub fn set_power_save_audio(&mut self, on: bool) {
-        if on {
-            self.power_save_mute_control |= 0x08
-        } else {
-            self.power_save_mute_control &= !0x08
-        }
+        let mut f = self.power_save_flags();
+        f.set(PowerSaveMute::POWER_SAVE_AUDIO, on);
+        self.set_power_save_flags(f);
     }
 
     pub fn mute_mic(&self) -> bool {
-        (self.power_save_mute_control & 0x10) != 0
+        self.power_save_flags().contains(PowerSaveMute::MUTE_MIC)
     }
     pub fn set_mute_mic(&mut self, on: bool) {
-        if on {
-            self.power_save_mute_control |= 0x10
-        } else {
-            self.power_save_mute_control &= !0x10
-        }
+        let mut f = self.power_save_flags();
+        f.set(PowerSaveMute::MUTE_MIC, on);
+        self.set_power_save_flags(f);
     }
 
     pub fn mute_speaker(&self) -> bool {
-        (self.power_save_mute_control & 0x20) != 0
+        self.power_save_flags()
+            .contains(PowerSaveMute::MUTE_SPEAKER)
     }
     pub fn set_mute_speaker(&mut self, on: bool) {
-        if on {
-            self.power_save_mute_control |= 0x20
-        } else {
-            self.power_save_mute_control &= !0x20
-        }
+        let mut f = self.power_save_flags();
+        f.set(PowerSaveMute::MUTE_SPEAKER, on);
+        self.set_power_save_flags(f);
     }
 
     pub fn mute_headphone(&self) -> bool {
-        (self.power_save_mute_control & 0x40) != 0
+        self.power_save_flags()
+            .contains(PowerSaveMute::MUTE_HEADPHONE)
     }
     pub fn set_mute_headphone(&mut self, on: bool) {
-        if on {
-            self.power_save_mute_control |= 0x40
-        } else {
-            self.power_save_mute_control &= !0x40
-        }
+        let mut f = self.power_save_flags();
+        f.set(PowerSaveMute::MUTE_HEADPHONE, on);
+        self.set_power_save_flags(f);
     }
 
     pub fn mute_haptic(&self) -> bool {
-        (self.power_save_mute_control & 0x80) != 0
+        self.power_save_flags().contains(PowerSaveMute::MUTE_HAPTIC)
     }
     pub fn set_mute_haptic(&mut self, on: bool) {
-        if on {
-            self.power_save_mute_control |= 0x80
-        } else {
-            self.power_save_mute_control &= !0x80
-        }
+        let mut f = self.power_save_flags();
+        f.set(PowerSaveMute::MUTE_HAPTIC, on);
+        self.set_power_save_flags(f);
     }
 
     // --- Audio control flags 2 ---
@@ -442,37 +473,39 @@ impl DualSenseOutput {
     }
 
     // --- Flags 3 ---
+    pub fn flags3(&self) -> Flags3 {
+        Flags3::from_bits_truncate(self.flags_3)
+    }
+    pub fn set_flags3(&mut self, f: Flags3) {
+        self.flags_3 = f.bits();
+    }
+
     pub fn allow_light_brightness_change(&self) -> bool {
-        (self.flags_3 & 0x01) != 0
+        self.flags3()
+            .contains(Flags3::ALLOW_LIGHT_BRIGHTNESS_CHANGE)
     }
     pub fn set_allow_light_brightness_change(&mut self, on: bool) {
-        if on {
-            self.flags_3 |= 0x01
-        } else {
-            self.flags_3 &= !0x01
-        }
+        let mut f = self.flags3();
+        f.set(Flags3::ALLOW_LIGHT_BRIGHTNESS_CHANGE, on);
+        self.set_flags3(f);
     }
 
     pub fn allow_color_light_fade_animation(&self) -> bool {
-        (self.flags_3 & 0x02) != 0
+        self.flags3().contains(Flags3::ALLOW_COLOR_LIGHT_FADE)
     }
     pub fn set_allow_color_light_fade_animation(&mut self, on: bool) {
-        if on {
-            self.flags_3 |= 0x02
-        } else {
-            self.flags_3 &= !0x02
-        }
+        let mut f = self.flags3();
+        f.set(Flags3::ALLOW_COLOR_LIGHT_FADE, on);
+        self.set_flags3(f);
     }
 
     pub fn enable_improved_rumble_emulation(&self) -> bool {
-        (self.flags_3 & 0x04) != 0
+        self.flags3().contains(Flags3::ENABLE_IMPROVED_RUMBLE)
     }
     pub fn set_enable_improved_rumble_emulation(&mut self, on: bool) {
-        if on {
-            self.flags_3 |= 0x04
-        } else {
-            self.flags_3 &= !0x04
-        }
+        let mut f = self.flags3();
+        f.set(Flags3::ENABLE_IMPROVED_RUMBLE, on);
+        self.set_flags3(f);
     }
 
     // --- Haptic low pass filter ---
