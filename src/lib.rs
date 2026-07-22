@@ -42,7 +42,7 @@ impl DualSense {
         let (send_input, input_channel) = unbounded();
         let (output_channel, receive_output) = unbounded();
         let running = Arc::new(AtomicBool::new(true));
-        let running_clone = running.clone();
+        let running_clone = Arc::clone(&running);
         let join_handle = thread::spawn(move || {
             Self::update_thread(
                 device,
