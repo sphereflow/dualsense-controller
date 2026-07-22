@@ -318,9 +318,9 @@ pub enum DualSenseError {
     #[error("Channel receive error")]
     ChannelRecvError(#[from] crossbeam_channel::RecvError),
 
-    #[error("Channel send error")]
+    #[error("Channel send error: Output")]
     ChannelSendErrorOutput(#[from] crossbeam_channel::SendError<DualSenseOutput>),
 
-    #[error("Channel send error")]
+    #[error("Channel send error: Input")]
     ChannelSendErrorInput(#[from] crossbeam_channel::SendError<DualSenseInputUSB>),
 }
