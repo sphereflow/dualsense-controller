@@ -224,7 +224,19 @@ impl DualSense {
         self.diff_released.is_button_down(button)
     }
 
-    pub fn set_rumble(
+    pub fn set_rumble_left(&mut self, left: u8, power_reduction: u8) -> Result<(), DualSenseError> {
+        self.set_rumble(left, self.current_output.rumble_right, power_reduction)
+    }
+
+    pub fn set_rumble_right(
+        &mut self,
+        right: u8,
+        power_reduction: u8,
+    ) -> Result<(), DualSenseError> {
+        self.set_rumble(self.current_output.rumble_left, right, power_reduction)
+    }
+
+    fn set_rumble(
         &mut self,
         left: u8,
         right: u8,
@@ -232,11 +244,17 @@ impl DualSense {
     ) -> Result<(), DualSenseError> {
         let old_output = self.current_output;
         self.current_output.set_use_rumble_no_haptics(true);
-        self.current_output
-            .set_rumble_motor_power_reduction(power_reduction);
         self.current_output.set_rumble_left(left);
         self.current_output.set_rumble_right(right);
-        if old_output != self.current_output {
+        self.current_output
+            .set_rumble_motor_power_reduction(power_reduction);
+        let diff_haptics =
+            old_output.use_rumble_no_haptics() != self.current_output.use_rumble_no_haptics();
+        let diff_rumble_left = old_output.rumble_left != self.current_output.rumble_left;
+        let diff_rumble_right = old_output.rumble_right != self.current_output.rumble_right;
+        let diff_power_reduction = old_output.get_rumble_motor_power_reduction()
+            != self.current_output.get_rumble_motor_power_reduction();
+        if diff_haptics || diff_rumble_left || diff_rumble_right || diff_power_reduction {
             self.output_channel.send(self.current_output)?;
         }
         Ok(())
