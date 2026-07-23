@@ -5,7 +5,7 @@ use crate::button::Button;
 #[repr(C, packed)]
 #[derive(FromBytes, IntoBytes, Immutable, Debug, Clone, Copy, Default)]
 pub struct DualSenseInputReportSimpleBT {
-    report_id: u8, // 0x01
+    report_id: u8, // INPUT_REPORT_SIMPLE_BT_ID
     pub left_stick_x: u8,
     pub left_stick_y: u8,
     pub right_stick_x: u8,
@@ -37,7 +37,7 @@ impl From<DualSenseInputReportSimpleBT> for DualSenseInputUSB {
 #[repr(C, packed)]
 #[derive(FromBytes, IntoBytes, Immutable, Debug, Clone, Copy, Default)]
 pub struct DualSenseInputReportBT {
-    report_id: u8,
+    report_id: u8, // INPUT_REPORT_BT_ID
     pub flags_and_seq: u8, // HasHID1, HasMic1, Unknown2, SeqNumber4
     pub base: DualSenseInputUSB,
 }
@@ -280,7 +280,7 @@ impl TouchData {
 #[repr(C, packed)]
 #[derive(FromBytes, Debug, Clone, Copy)]
 pub struct DualSenseInputReport31 {
-    pub report_id: u8, // 0x31
+    pub report_id: u8, // INPUT_REPORT_BT_ID
     pub tag: u8,       // Usually 0xA1 (BT header tag)
 
     // Reuse your 0x01 logic here (ensure 0x01 struct DOES NOT have report_id field)

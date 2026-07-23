@@ -22,6 +22,13 @@ pub const VENDOR_ID: u16 = 0x054C;
 pub const DUALSENSE_PRODUCT_ID: u16 = 0x0CE6;
 pub const DUALSENSE_EDGE_PRODUCT_ID: u16 = 0x0DF2;
 
+// Report IDs
+pub const INPUT_REPORT_USB_ID: u8 = 0x01;
+pub const INPUT_REPORT_BT_ID: u8 = 0x31;
+pub const OUTPUT_REPORT_USB_ID: u8 = 0x02;
+pub const OUTPUT_REPORT_BT_ID: u8 = 0x31;
+pub const OUTPUT_REPORT_BT_TAG: u8 = 0x10;
+
 #[derive(Debug)]
 pub struct DualSense {
     input_channel: Receiver<DualSenseInputUSB>,
@@ -123,13 +130,13 @@ impl DualSense {
                         Ok(output) => {
                             // write output (blocking)
                             if !is_bluetooth {
-                                let report: Report<DualSenseOutput, 2> = Report::new(output);
+                                let report: Report<DualSenseOutput, { OUTPUT_REPORT_USB_ID }> = Report::new(output);
                                 device.write(report.as_bytes())?;
                             } else {
                                 let mut report = DualSenseOutputReportBT {
-                                    report_id: 0x31,
+                                    report_id: OUTPUT_REPORT_BT_ID,
                                     seq_number_and_flags: output_seq_tag_bt << 4,
-                                    tag: 0x10,
+                                    tag: OUTPUT_REPORT_BT_TAG,
                                     base: output,
                                     reserved: [0;24],
                                     crc32: 0,
@@ -155,7 +162,7 @@ impl DualSense {
                     match device.read_timeout(&mut input_report_buffer, 0) {
                         Ok(size) if size > 0 => {
                             match input_report_buffer[0] {
-                                0x01 => {
+                                INPUT_REPORT_USB_ID => {
                                     if is_bluetooth {
                                         if let Ok(report) = DualSenseInputReportSimpleBT::try_read_from_prefix(
                                             &input_report_buffer[..size],
@@ -173,7 +180,7 @@ impl DualSense {
                                         }
                                     }
                                 }
-                                0x31 => {
+                                INPUT_REPORT_BT_ID => {
                                     if let Ok(report) = DualSenseInputReportBT::try_read_from_prefix(&input_report_buffer[..size]) {
                                         send_input.send(report.0.base)?;
                                             input_packet_num += 1;

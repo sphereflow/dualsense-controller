@@ -686,16 +686,16 @@ impl Default for DualSenseOutput {
 #[repr(C, packed)]
 #[derive(IntoBytes, FromZeros, Immutable, Debug, Clone, Copy)]
 pub struct DualSenseOutputReportUSB {
-    report_id: u8, // 0x02
+    report_id: u8, // OUTPUT_REPORT_USB_ID
     pub base: DualSenseOutput,
 }
 
 #[repr(C, packed)]
 #[derive(IntoBytes, FromZeros, Immutable, Debug, Clone, Copy)]
 pub struct DualSenseOutputReportBT {
-    pub report_id: u8,            // 0x31
+    pub report_id: u8,            // OUTPUT_REPORT_BT_ID
     pub seq_number_and_flags: u8, // Unknown1 EnableHID1 Unknown2 SequenceNumber4
-    pub tag: u8,
+    pub tag: u8,                  // OUTPUT_REPORT_BT_TAG
     pub base: DualSenseOutput,
     pub reserved: [u8; 24],
     pub crc32: u32,
