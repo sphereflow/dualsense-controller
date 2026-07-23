@@ -1,6 +1,36 @@
+use bitflags::bitflags;
 use zerocopy::{FromBytes, Immutable, IntoBytes};
 
 use crate::button::Button;
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct ButtonsLow: u8 {
+        const SQUARE   = 0x10;
+        const CROSS    = 0x20;
+        const CIRCLE   = 0x40;
+        const TRIANGLE = 0x80;
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct ButtonsHigh: u8 {
+        const L1       = 0x01;
+        const R1       = 0x02;
+        const L2       = 0x04;
+        const R2       = 0x08;
+        const CREATE   = 0x10;
+        const MENU     = 0x20;
+        const L3       = 0x40;
+        const R3       = 0x80;
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct ButtonsMisc: u8 {
+        const PS          = 0x01;
+        const TOUCHPAD    = 0x02;
+        const MUTE        = 0x04;
+    }
+}
 
 #[repr(C, packed)]
 #[derive(FromBytes, IntoBytes, Immutable, Debug, Clone, Copy, Default)]
@@ -10,9 +40,9 @@ pub struct DualSenseInputReportSimpleBT {
     pub left_stick_y: u8,
     pub right_stick_x: u8,
     pub right_stick_y: u8,
-    pub buttons_low: u8,  // D-pad and Shapes
-    pub buttons_high: u8, // L1, R1, L2, R2, Create, Menu, L3, R3
-    pub buttons_misc: u8, // Home1 Pad1 Counter6
+    pub buttons_low: ButtonsLow,  // D-pad and Shapes
+    pub buttons_high: ButtonsHigh, // L1, R1, L2, R2, Create, Menu, L3, R3
+    pub buttons_misc: ButtonsMisc, // Home1 Pad1 Counter6
     pub l2_axis: u8,
     pub r2_axis: u8,
 }
@@ -58,9 +88,9 @@ pub struct DualSenseInputUSB {
     pub l2_axis: u8,
     pub r2_axis: u8,
     pub seq_number: u8,
-    pub buttons_low: u8,    // D-pad and Shapes
-    pub buttons_high: u8,   // L1, R1, L2, R2, Create, Menu, L3, R3
-    pub buttons_misc: u8,   // PS, TouchClick, Mute
+    pub buttons_low: ButtonsLow,    // D-pad and Shapes
+    pub buttons_high: ButtonsHigh,   // L1, R1, L2, R2, Create, Menu, L3, R3
+    pub buttons_misc: ButtonsMisc,   // PS, TouchClick, Mute
     pub unknown_1: [u8; 5], // 10
     // --- Motion Sensors (IMU) ---
     pub gyro_x: i16,           // 15-16
@@ -107,25 +137,25 @@ impl DualSenseInputUSB {
             ),
 
             // Face buttons
-            Button::Square => (self.buttons_low & 0x10) != 0,
-            Button::Cross => (self.buttons_low & 0x20) != 0,
-            Button::Circle => (self.buttons_low & 0x40) != 0,
-            Button::Triangle => (self.buttons_low & 0x80) != 0,
+            Button::Square => self.buttons_low.contains(ButtonsLow::SQUARE),
+            Button::Cross => self.buttons_low.contains(ButtonsLow::CROSS),
+            Button::Circle => self.buttons_low.contains(ButtonsLow::CIRCLE),
+            Button::Triangle => self.buttons_low.contains(ButtonsLow::TRIANGLE),
 
             // Shoulders & triggers
-            Button::L1 => (self.buttons_high & 0x01) != 0,
-            Button::R1 => (self.buttons_high & 0x02) != 0,
-            Button::L2 => (self.buttons_high & 0x04) != 0,
-            Button::R2 => (self.buttons_high & 0x08) != 0,
-            Button::L3 => (self.buttons_high & 0x40) != 0,
-            Button::R3 => (self.buttons_high & 0x80) != 0,
+            Button::L1 => self.buttons_high.contains(ButtonsHigh::L1),
+            Button::R1 => self.buttons_high.contains(ButtonsHigh::R1),
+            Button::L2 => self.buttons_high.contains(ButtonsHigh::L2),
+            Button::R2 => self.buttons_high.contains(ButtonsHigh::R2),
+            Button::L3 => self.buttons_high.contains(ButtonsHigh::L3),
+            Button::R3 => self.buttons_high.contains(ButtonsHigh::R3),
 
             // System/misc buttons
-            Button::PS => (self.buttons_misc & 0x01) != 0,
-            Button::Touchpad => (self.buttons_misc & 0x02) != 0,
-            Button::Mute => (self.buttons_misc & 0x04) != 0,
-            Button::Create => (self.buttons_high & 0x10) != 0,
-            Button::Menu => (self.buttons_high & 0x20) != 0,
+            Button::PS => self.buttons_misc.contains(ButtonsMisc::PS),
+            Button::Touchpad => self.buttons_misc.contains(ButtonsMisc::TOUCHPAD),
+            Button::Mute => self.buttons_misc.contains(ButtonsMisc::MUTE),
+            Button::Create => self.buttons_high.contains(ButtonsHigh::CREATE),
+            Button::Menu => self.buttons_high.contains(ButtonsHigh::MENU),
         }
     }
 
@@ -148,18 +178,20 @@ impl DualSenseInputUSB {
     // --- D-Pad (Hat Switch) ---
     /// Returns: 0:N, 1:NE, 2:E, 3:SE, 4:S, 5:SW, 6:W, 7:NW, 8:Released
     pub fn dpad(&self) -> DPadState {
-        DPadState::from(self.buttons_low & 0x0F)
+        // bitflags doesn't handle the 4-bit D-pad as a bitfield easily, 
+        // but we can extract it by casting the bitflags to u8.
+        DPadState::from(self.buttons_low.bits() & 0x0F)
     }
 
     // --- System Buttons (buttons_misc) ---
     pub fn ps(&self) -> bool {
-        (self.buttons_misc & 0x01) != 0
+        self.buttons_misc.contains(ButtonsMisc::PS)
     }
     pub fn touchpad_click(&self) -> bool {
-        (self.buttons_misc & 0x02) != 0
+        self.buttons_misc.contains(ButtonsMisc::TOUCHPAD)
     }
     pub fn mute(&self) -> bool {
-        (self.buttons_misc & 0x04) != 0
+        self.buttons_misc.contains(ButtonsMisc::MUTE)
     }
 
     pub fn battery_state(&self) -> PowerState {
@@ -172,8 +204,9 @@ impl DualSenseInputUSB {
         let mut diff = *self;
         diff.buttons_low = self.buttons_low & !other.buttons_low;
         // dpad is handled differently
-        diff.buttons_low &= 0xF0;
-        diff.buttons_low |= self.dpad().diff(&other.dpad()) as u8;
+        let dpad_diff = self.dpad().diff(&other.dpad()) as u8;
+        diff.buttons_low = ButtonsLow::from_bits_truncate((diff.buttons_low.bits() & 0xF0) | dpad_diff);
+        
         diff.buttons_high = self.buttons_high & !other.buttons_high;
         diff.buttons_misc = self.buttons_misc & !other.buttons_misc;
         diff
