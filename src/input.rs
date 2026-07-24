@@ -1,6 +1,36 @@
+use bitflags::bitflags;
 use zerocopy::{FromBytes, Immutable, IntoBytes};
 
 use crate::button::Button;
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct ButtonsLow: u8 {
+        const SQUARE   = 0x10;
+        const CROSS    = 0x20;
+        const CIRCLE   = 0x40;
+        const TRIANGLE = 0x80;
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct ButtonsHigh: u8 {
+        const L1       = 0x01;
+        const R1       = 0x02;
+        const L2       = 0x04;
+        const R2       = 0x08;
+        const CREATE   = 0x10;
+        const MENU     = 0x20;
+        const L3       = 0x40;
+        const R3       = 0x80;
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct ButtonsMisc: u8 {
+        const PS          = 0x01;
+        const TOUCHPAD    = 0x02;
+        const MUTE        = 0x04;
+    }
+}
 
 #[repr(C, packed)]
 #[derive(FromBytes, IntoBytes, Immutable, Debug, Clone, Copy, Default)]
@@ -107,25 +137,25 @@ impl DualSenseInputUSB {
             ),
 
             // Face buttons
-            Button::Square => (self.buttons_low & 0x10) != 0,
-            Button::Cross => (self.buttons_low & 0x20) != 0,
-            Button::Circle => (self.buttons_low & 0x40) != 0,
-            Button::Triangle => (self.buttons_low & 0x80) != 0,
+            Button::Square => ButtonsLow::from_bits_truncate(self.buttons_low).contains(ButtonsLow::SQUARE),
+            Button::Cross => ButtonsLow::from_bits_truncate(self.buttons_low).contains(ButtonsLow::CROSS),
+            Button::Circle => ButtonsLow::from_bits_truncate(self.buttons_low).contains(ButtonsLow::CIRCLE),
+            Button::Triangle => ButtonsLow::from_bits_truncate(self.buttons_low).contains(ButtonsLow::TRIANGLE),
 
             // Shoulders & triggers
-            Button::L1 => (self.buttons_high & 0x01) != 0,
-            Button::R1 => (self.buttons_high & 0x02) != 0,
-            Button::L2 => (self.buttons_high & 0x04) != 0,
-            Button::R2 => (self.buttons_high & 0x08) != 0,
-            Button::L3 => (self.buttons_high & 0x40) != 0,
-            Button::R3 => (self.buttons_high & 0x80) != 0,
+            Button::L1 => ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::L1),
+            Button::R1 => ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::R1),
+            Button::L2 => ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::L2),
+            Button::R2 => ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::R2),
+            Button::L3 => ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::L3),
+            Button::R3 => ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::R3),
 
             // System/misc buttons
-            Button::PS => (self.buttons_misc & 0x01) != 0,
-            Button::Touchpad => (self.buttons_misc & 0x02) != 0,
-            Button::Mute => (self.buttons_misc & 0x04) != 0,
-            Button::Create => (self.buttons_high & 0x10) != 0,
-            Button::Menu => (self.buttons_high & 0x20) != 0,
+            Button::PS => ButtonsMisc::from_bits_truncate(self.buttons_misc).contains(ButtonsMisc::PS),
+            Button::Touchpad => ButtonsMisc::from_bits_truncate(self.buttons_misc).contains(ButtonsMisc::TOUCHPAD),
+            Button::Mute => ButtonsMisc::from_bits_truncate(self.buttons_misc).contains(ButtonsMisc::MUTE),
+            Button::Create => ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::CREATE),
+            Button::Menu => ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::MENU),
         }
     }
 
@@ -153,13 +183,13 @@ impl DualSenseInputUSB {
 
     // --- System Buttons (buttons_misc) ---
     pub fn ps(&self) -> bool {
-        (self.buttons_misc & 0x01) != 0
+        ButtonsMisc::from_bits_truncate(self.buttons_misc).contains(ButtonsMisc::PS)
     }
     pub fn touchpad_click(&self) -> bool {
-        (self.buttons_misc & 0x02) != 0
+        ButtonsMisc::from_bits_truncate(self.buttons_misc).contains(ButtonsMisc::TOUCHPAD)
     }
     pub fn mute(&self) -> bool {
-        (self.buttons_misc & 0x04) != 0
+        ButtonsMisc::from_bits_truncate(self.buttons_misc).contains(ButtonsMisc::MUTE)
     }
 
     pub fn battery_state(&self) -> PowerState {
