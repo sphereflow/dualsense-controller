@@ -1,4 +1,4 @@
-use crossbeam_channel::{Receiver, Sender, tick, unbounded};
+use crossbeam_channel::{Receiver, Sender, unbounded};
 use hidapi::*;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -120,86 +120,77 @@ impl DualSense {
         let mut output_packet_num = 0;
         let mut output_seq_tag_bt: u8 = 0;
 
-        // tick used to poll the device without busy-waiting; select waits on outputs or the tick
-        let tick = tick(Duration::from_millis(2));
-
         while running.load(Ordering::Relaxed) {
-            crossbeam_channel::select! {
-                recv(receive_output) -> msg => {
-                    match msg {
-                        Ok(output) => {
-                            // write output (blocking)
-                            if !is_bluetooth {
-                                let report: Report<DualSenseOutput, { OUTPUT_REPORT_USB_ID }> = Report::new(output);
-                                device.write(report.as_bytes())?;
-                            } else {
-                                let mut report = DualSenseOutputReportBT {
-                                    report_id: OUTPUT_REPORT_BT_ID,
-                                    seq_number_and_flags: output_seq_tag_bt << 4,
-                                    tag: OUTPUT_REPORT_BT_TAG,
-                                    base: output,
-                                    reserved: [0;24],
-                                    crc32: 0,
-                                };
-                                report.add_crc();
-                                device.write(report.as_bytes())?;
-                                output_seq_tag_bt += 1;
-                                output_seq_tag_bt %= 16;
-                            }
-                            output_packet_num += 1;
-                            if output_packet_num % 100 == 0 {
-                                dbg!(output_packet_num);
-                            }
-                        }
-                        Err(_) => {
-                            // output channel closed; exit loop
-                            break;
-                        }
-                    }
+            // 1. Process any pending outputs first
+            while let Ok(output) = receive_output.try_recv() {
+                if !is_bluetooth {
+                    let report: Report<DualSenseOutput, { OUTPUT_REPORT_USB_ID }> = Report::new(output);
+                    device.write(report.as_bytes())?;
+                } else {
+                    let mut report = DualSenseOutputReportBT {
+                        report_id: OUTPUT_REPORT_BT_ID,
+                        seq_number_and_flags: output_seq_tag_bt << 4,
+                        tag: OUTPUT_REPORT_BT_TAG,
+                        base: output,
+                        reserved: [0;24],
+                        crc32: 0,
+                    };
+                    report.add_crc();
+                    device.write(report.as_bytes())?;
+                    output_seq_tag_bt += 1;
+                    output_seq_tag_bt %= 16;
                 }
-                recv(tick) -> _ => {
-                    // poll for input without blocking the select for too long
-                    match device.read_timeout(&mut input_report_buffer, 0) {
-                        Ok(size) if size > 0 => {
-                            match input_report_buffer[0] {
-                                INPUT_REPORT_USB_ID => {
-                                    if is_bluetooth {
-                                        if let Ok(report) = DualSenseInputReportSimpleBT::try_read_from_prefix(
-                                            &input_report_buffer[..size],
-                                        ) {
-                                            send_input.send(report.0.into())?;
-                                            input_packet_num += 1;
-                                        }
-                                    } else {
-                                        type Rep = Report<DualSenseInputUSB, 1>;
-                                        if let Ok(report) = Rep::try_read_from_prefix(
-                                            &input_report_buffer[..size],
-                                        ) {
-                                            send_input.send(report.0.base)?;
-                                            input_packet_num += 1;
-                                        }
-                                    }
-                                }
-                                INPUT_REPORT_BT_ID => {
-                                    if let Ok(report) = DualSenseInputReportBT::try_read_from_prefix(&input_report_buffer[..size]) {
-                                        send_input.send(report.0.base)?;
-                                            input_packet_num += 1;
-                                    }
-                                }
-                                byte => {
-                                    eprintln!("received unknown input report buffer byte: {byte}");
-                                }
-                            }
-                        }
-                        Ok(_) => {}
-                        Err(e) => {
-                            eprintln!("Error reading from DualSense: {}", e);
-                            return Err(e.into());
-                        }
-                    }
+                output_packet_num += 1;
+                if output_packet_num % 100 == 0 {
+                    dbg!(output_packet_num);
                 }
             }
-            if input_packet_num % 1000 == 0 {
+
+            // 2. Perform a blocking read with a short timeout (e.g. 4ms) to wait for controller data.
+            // This yields the thread to the OS and wakes up immediately when the controller sends a packet,
+            // or after 4ms if no packet was sent (allowing us to check for new output messages).
+            match device.read_timeout(&mut input_report_buffer, 4) {
+                Ok(size) if size > 0 => {
+                    match input_report_buffer[0] {
+                        INPUT_REPORT_USB_ID => {
+                            if is_bluetooth {
+                                if let Ok(report) = DualSenseInputReportSimpleBT::try_read_from_prefix(
+                                    &input_report_buffer[..size],
+                                ) {
+                                    send_input.send(report.0.into())?;
+                                    input_packet_num += 1;
+                                }
+                            } else {
+                                type Rep = Report<DualSenseInputUSB, 1>;
+                                if let Ok(report) = Rep::try_read_from_prefix(
+                                    &input_report_buffer[..size],
+                                ) {
+                                    send_input.send(report.0.base)?;
+                                    input_packet_num += 1;
+                                }
+                            }
+                        }
+                        INPUT_REPORT_BT_ID => {
+                            if let Ok(report) = DualSenseInputReportBT::try_read_from_prefix(&input_report_buffer[..size]) {
+                                send_input.send(report.0.base)?;
+                                input_packet_num += 1;
+                            }
+                        }
+                        byte => {
+                            eprintln!("received unknown input report buffer byte: {byte}");
+                        }
+                    }
+                }
+                Ok(_) => {
+                    // Timeout with no data. Just loop again to check running state and outputs.
+                }
+                Err(e) => {
+                    eprintln!("Error reading from DualSense: {}", e);
+                    return Err(e.into());
+                }
+            }
+
+            if input_packet_num % 1000 == 0 && input_packet_num > 0 {
                 dbg!(input_packet_num);
             }
         }
