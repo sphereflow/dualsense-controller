@@ -1,7 +1,8 @@
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use hidapi::*;
-use std::sync::Arc;
+use std::fmt::Display;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 use thiserror::Error;
@@ -36,7 +37,7 @@ pub struct DualSense {
     diff_pressed: DualSenseInputUSB,
     diff_released: DualSenseInputUSB,
     current_output: DualSenseOutput,
-    output_channel: Sender<DualSenseOutput>,
+    output_channel: Arc<Mutex<Option<DualSenseOutput>>>,
     join_handle: Option<JoinHandle<Result<(), DualSenseError>>>,
     running: Arc<AtomicBool>,
     pub is_bluetooth: bool,
@@ -47,7 +48,8 @@ impl DualSense {
         let api = HidApi::new()?;
         let (device, is_bluetooth) = Self::connect(&api)?;
         let (send_input, input_channel) = unbounded();
-        let (output_channel, receive_output) = unbounded();
+        let output_channel = Arc::new(Mutex::new(None));
+        let receive_output = output_channel.clone();
         let running = Arc::new(AtomicBool::new(true));
         let running_clone = Arc::clone(&running);
         let join_handle = thread::spawn(move || {
@@ -112,7 +114,7 @@ impl DualSense {
         is_bluetooth: bool,
         running: Arc<AtomicBool>,
         send_input: Sender<DualSenseInputUSB>,
-        receive_output: Receiver<DualSenseOutput>,
+        receive_output: Arc<Mutex<Option<DualSenseOutput>>>,
     ) -> Result<(), DualSenseError> {
         // enable_extended_mode(&device);
         let mut input_report_buffer = [0u8; 128];
@@ -122,9 +124,13 @@ impl DualSense {
 
         while running.load(Ordering::Relaxed) {
             // 1. Process any pending outputs first
-            while let Ok(output) = receive_output.try_recv() {
+            if let Ok(mutex_guard) = receive_output.try_lock().as_mut()
+                && let Some(output) = mutex_guard.take()
+            {
+                let output = DualSenseOutput::clone(&output);
                 if !is_bluetooth {
-                    let report: Report<DualSenseOutput, { OUTPUT_REPORT_USB_ID }> = Report::new(output);
+                    let report: Report<DualSenseOutput, { OUTPUT_REPORT_USB_ID }> =
+                        Report::new(output);
                     device.write(report.as_bytes())?;
                 } else {
                     let mut report = DualSenseOutputReportBT {
@@ -132,7 +138,7 @@ impl DualSense {
                         seq_number_and_flags: output_seq_tag_bt << 4,
                         tag: OUTPUT_REPORT_BT_TAG,
                         base: output,
-                        reserved: [0;24],
+                        reserved: [0; 24],
                         crc32: 0,
                     };
                     report.add_crc();
@@ -150,37 +156,37 @@ impl DualSense {
             // This yields the thread to the OS and wakes up immediately when the controller sends a packet,
             // or after 4ms if no packet was sent (allowing us to check for new output messages).
             match device.read_timeout(&mut input_report_buffer, 4) {
-                Ok(size) if size > 0 => {
-                    match input_report_buffer[0] {
-                        INPUT_REPORT_USB_ID => {
-                            if is_bluetooth {
-                                if let Ok(report) = DualSenseInputReportSimpleBT::try_read_from_prefix(
-                                    &input_report_buffer[..size],
-                                ) {
-                                    send_input.send(report.0.into())?;
-                                    input_packet_num += 1;
-                                }
-                            } else {
-                                type Rep = Report<DualSenseInputUSB, 1>;
-                                if let Ok(report) = Rep::try_read_from_prefix(
-                                    &input_report_buffer[..size],
-                                ) {
-                                    send_input.send(report.0.base)?;
-                                    input_packet_num += 1;
-                                }
+                Ok(size) if size > 0 => match input_report_buffer[0] {
+                    INPUT_REPORT_USB_ID => {
+                        if is_bluetooth {
+                            if let Ok(report) = DualSenseInputReportSimpleBT::try_read_from_prefix(
+                                &input_report_buffer[..size],
+                            ) {
+                                send_input.send(report.0.into())?;
+                                input_packet_num += 1;
                             }
-                        }
-                        INPUT_REPORT_BT_ID => {
-                            if let Ok(report) = DualSenseInputReportBT::try_read_from_prefix(&input_report_buffer[..size]) {
+                        } else {
+                            type Rep = Report<DualSenseInputUSB, 1>;
+                            if let Ok(report) =
+                                Rep::try_read_from_prefix(&input_report_buffer[..size])
+                            {
                                 send_input.send(report.0.base)?;
                                 input_packet_num += 1;
                             }
                         }
-                        byte => {
-                            eprintln!("received unknown input report buffer byte: {byte}");
+                    }
+                    INPUT_REPORT_BT_ID => {
+                        if let Ok(report) = DualSenseInputReportBT::try_read_from_prefix(
+                            &input_report_buffer[..size],
+                        ) {
+                            send_input.send(report.0.base)?;
+                            input_packet_num += 1;
                         }
                     }
-                }
+                    byte => {
+                        eprintln!("received unknown input report buffer byte: {byte}");
+                    }
+                },
                 Ok(_) => {
                     // Timeout with no data. Just loop again to check running state and outputs.
                 }
@@ -222,6 +228,15 @@ impl DualSense {
         self.diff_released.is_button_down(button)
     }
 
+    fn send_current_output(&mut self) -> Result<(), DualSenseError> {
+        let mut guard = self
+            .output_channel
+            .lock()
+            .map_err(|e| MutexError(e.to_string()))?;
+        guard.replace(self.current_output);
+        Ok(())
+    }
+
     pub fn set_rumble_left(&mut self, left: u8, power_reduction: u8) -> Result<(), DualSenseError> {
         self.set_rumble(left, self.current_output.rumble_right, power_reduction)
     }
@@ -253,7 +268,7 @@ impl DualSense {
         let diff_power_reduction = old_output.get_rumble_motor_power_reduction()
             != self.current_output.get_rumble_motor_power_reduction();
         if diff_haptics || diff_rumble_left || diff_rumble_right || diff_power_reduction {
-            self.output_channel.send(self.current_output)?;
+            self.send_current_output()?;
         }
         Ok(())
     }
@@ -269,7 +284,7 @@ impl DualSense {
         self.current_output.left_trigger_ffb = left;
         self.current_output.right_trigger_ffb = right;
         if old_output != self.current_output {
-            self.output_channel.send(self.current_output)?;
+            self.send_current_output()?;
         }
         Ok(())
     }
@@ -284,7 +299,7 @@ impl DualSense {
         self.current_output.set_lightbar_green(g);
         self.current_output.set_lightbar_blue(b);
         if old_output != self.current_output {
-            self.output_channel.send(self.current_output)?;
+            self.send_current_output()?;
         }
         Ok(())
     }
@@ -300,7 +315,7 @@ impl DualSense {
         // are already 0x00 thanks to new_zeroed().
 
         if old_output != self.current_output {
-            self.output_channel.send(self.current_output)?;
+            self.send_current_output()?;
         }
         Ok(())
     }
@@ -314,6 +329,15 @@ impl Drop for DualSense {
         if let Some(handle) = self.join_handle.take() {
             handle.join().ok();
         }
+    }
+}
+
+#[derive(Debug, Error)]
+pub struct MutexError(String);
+
+impl Display for MutexError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
     }
 }
 
@@ -333,6 +357,9 @@ pub enum DualSenseError {
 
     #[error("Channel receive error")]
     ChannelRecvError(#[from] crossbeam_channel::RecvError),
+
+    #[error("Failed to lock Output Mutex")]
+    LockMutexError(#[from] MutexError),
 
     #[error("Channel send error: Output")]
     ChannelSendErrorOutput(#[from] crossbeam_channel::SendError<DualSenseOutput>),
