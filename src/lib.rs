@@ -230,6 +230,28 @@ impl DualSense {
         self.diff_released.is_button_down(button)
     }
 
+    /// Returns the normalized left stick position as `(x, y)` floats in the `[-1.0, 1.0]` range
+    /// using a radial scaled deadzone.
+    pub fn left_stick_normalized(&self, deadzone: f32) -> (f32, f32) {
+        self.last_input.left_stick_normalized(deadzone)
+    }
+
+    /// Returns the normalized right stick position as `(x, y)` floats in the `[-1.0, 1.0]` range
+    /// using a radial scaled deadzone.
+    pub fn right_stick_normalized(&self, deadzone: f32) -> (f32, f32) {
+        self.last_input.right_stick_normalized(deadzone)
+    }
+
+    /// Returns the left stick position with a default 10% deadzone (`0.10`).
+    pub fn left_stick_deadzone(&self) -> (f32, f32) {
+        self.last_input.left_stick_deadzone()
+    }
+
+    /// Returns the right stick position with a default 10% deadzone (`0.10`).
+    pub fn right_stick_deadzone(&self) -> (f32, f32) {
+        self.last_input.right_stick_deadzone()
+    }
+
     fn send_current_output(&mut self) {
         let mut guard = self
             .output_channel

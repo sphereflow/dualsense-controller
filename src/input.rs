@@ -116,6 +116,8 @@ pub struct DualSenseInputUSB {
 }
 
 impl DualSenseInputUSB {
+    pub const DEFAULT_DEADZONE: f32 = 0.10;
+
     pub fn is_button_down(&self, b: Button) -> bool {
         match b {
             // D-pad: treat diagonal positions as also pressing both relevant directions
@@ -165,6 +167,49 @@ impl DualSenseInputUSB {
     }
     pub fn right_stick(&self) -> (u8, u8) {
         (self.right_stick_x, self.right_stick_y)
+    }
+
+    /// Returns the normalized left stick position as `(x, y)` floats in the `[-1.0, 1.0]` range
+    /// using a smooth radial scaled deadzone.
+    ///
+    /// * `deadzone`: A threshold float between `0.0` (no deadzone) and `1.0` (full deadzone).
+    ///   Values below this threshold are mapped to `0.0`, and values above are smoothly scaled
+    ///   from `0.0` to `1.0`.
+    pub fn left_stick_normalized(&self, deadzone: f32) -> (f32, f32) {
+        Self::apply_radial_deadzone(self.left_stick_x, self.left_stick_y, deadzone)
+    }
+
+    /// Returns the normalized right stick position as `(x, y)` floats in the `[-1.0, 1.0]` range
+    /// using a smooth radial scaled deadzone.
+    pub fn right_stick_normalized(&self, deadzone: f32) -> (f32, f32) {
+        Self::apply_radial_deadzone(self.right_stick_x, self.right_stick_y, deadzone)
+    }
+
+    /// Helper for left stick with default deadzone of 10% (`0.10`).
+    pub fn left_stick_deadzone(&self) -> (f32, f32) {
+        self.left_stick_normalized(Self::DEFAULT_DEADZONE)
+    }
+
+    /// Helper for right stick with default deadzone of 10% (`0.10`).
+    pub fn right_stick_deadzone(&self) -> (f32, f32) {
+        self.right_stick_normalized(Self::DEFAULT_DEADZONE)
+    }
+
+    fn apply_radial_deadzone(raw_x: u8, raw_y: u8, deadzone: f32) -> (f32, f32) {
+        // Map raw u8 (0..255) to centered [-1.0, 1.0]
+        let nx = (raw_x as f32 - 128.0) / 127.5;
+        let ny = (raw_y as f32 - 128.0) / 127.5;
+
+        let magnitude = (nx * nx + ny * ny).sqrt();
+        if magnitude <= deadzone || magnitude == 0.0 {
+            return (0.0, 0.0);
+        }
+
+        let scaled_magnitude = ((magnitude - deadzone) / (1.0 - deadzone)).min(1.0);
+        let dir_x = nx / magnitude;
+        let dir_y = ny / magnitude;
+
+        (dir_x * scaled_magnitude, dir_y * scaled_magnitude)
     }
 
     // --- Trigger Axes (0-255) ---
@@ -343,4 +388,57 @@ pub struct DualSenseInputReport31 {
     pub padding_3: [u8; 9],
 
     pub crc32: u32, // Bluetooth requires this checksum
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_radial_deadzone_center() {
+        let input = DualSenseInputUSB {
+            left_stick_x: 128,
+            left_stick_y: 128,
+            ..Default::default()
+        };
+        let (x, y) = input.left_stick_deadzone();
+        assert_eq!(x, 0.0);
+        assert_eq!(y, 0.0);
+    }
+
+    #[test]
+    fn test_radial_deadzone_drift_filtered() {
+        let input = DualSenseInputUSB {
+            left_stick_x: 132,
+            left_stick_y: 125,
+            ..Default::default()
+        };
+        let (x, y) = input.left_stick_deadzone();
+        assert_eq!(x, 0.0);
+        assert_eq!(y, 0.0);
+    }
+
+    #[test]
+    fn test_radial_deadzone_max_right() {
+        let input = DualSenseInputUSB {
+            left_stick_x: 255,
+            left_stick_y: 128,
+            ..Default::default()
+        };
+        let (x, y) = input.left_stick_normalized(0.1);
+        assert!((x - 1.0).abs() < 0.01);
+        assert_eq!(y, 0.0);
+    }
+
+    #[test]
+    fn test_radial_deadzone_max_left() {
+        let input = DualSenseInputUSB {
+            left_stick_x: 0,
+            left_stick_y: 128,
+            ..Default::default()
+        };
+        let (x, y) = input.left_stick_normalized(0.1);
+        assert!((x - (-1.0)).abs() < 0.01);
+        assert_eq!(y, 0.0);
+    }
 }
