@@ -1,6 +1,5 @@
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use hidapi::*;
-use std::fmt::Display;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -231,7 +230,7 @@ impl DualSense {
         let mut guard = self
             .output_channel
             .lock()
-            .map_err(|e| MutexError(e.to_string()))?;
+            .unwrap_or_else(|e| e.into_inner());
         guard.replace(self.current_output);
         Ok(())
     }
@@ -331,15 +330,6 @@ impl Drop for DualSense {
     }
 }
 
-#[derive(Debug, Error)]
-pub struct MutexError(String);
-
-impl Display for MutexError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
 #[derive(Error, Debug)]
 pub enum DualSenseError {
     #[error("HID device error: {0}")]
@@ -356,9 +346,6 @@ pub enum DualSenseError {
 
     #[error("Channel receive error")]
     ChannelRecvError(#[from] crossbeam_channel::RecvError),
-
-    #[error("Failed to lock Output Mutex")]
-    LockMutexError(#[from] MutexError),
 
     #[error("Channel send error: Input")]
     ChannelSendErrorInput(#[from] crossbeam_channel::SendError<DualSenseInputUSB>),
