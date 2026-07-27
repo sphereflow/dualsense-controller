@@ -2,7 +2,11 @@
 name = "dualsense-controller"
 version = "0.1.0"
 edition = "2024"
-keywords = ["sony", "playstation", "dualsense"]
+license = "MIT"
+repository = "https://github.com/sphereflow/dualsense-controller"
+keywords = ["playstation", "dualsense", "hid", "gamepad", "controller"]
+categories = ["hardware-support", "game-development"]
+description = "Rust library for interfacing with a PS5 dualsense controller over USB and Bluetooth."
 
 [dependencies]
 thiserror = "2.0.18"
