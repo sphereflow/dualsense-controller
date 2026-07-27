@@ -124,7 +124,7 @@ impl DualSense {
 
         while running.load(Ordering::Relaxed) {
             // 1. Process any pending outputs first
-            if let Ok(mutex_guard) = receive_output.try_lock().as_mut()
+            if let Ok(mut mutex_guard) = receive_output.lock()
                 && let Some(output) = mutex_guard.take()
             {
                 if !is_bluetooth {
