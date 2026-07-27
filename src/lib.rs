@@ -269,16 +269,16 @@ impl DualSense {
         (x_normalized, y_normalized)
     }
 
-    /// Sets the deadzone of the left stick values range from 0.0 to 1.0.
+    /// Sets the deadzone of the left stick values range from 0.0 to 0.99.
     /// Values out of range will be clamped
     pub fn set_dead_zone_left(&mut self, deadzone: (f32, f32)) {
-        self.deadzone_left = (deadzone.0.clamp(0.0, 1.0), deadzone.1.clamp(0.0, 1.0));
+        self.deadzone_left = (deadzone.0.clamp(0.0, 0.99), deadzone.1.clamp(0.0, 0.99));
     }
 
     /// Sets the deadzone of the right stick values range from 0.0 to 1.0.
     /// Values out of range will be clamped
     pub fn set_dead_zone_right(&mut self, deadzone: (f32, f32)) {
-        self.deadzone_right = (deadzone.0.clamp(0.0, 1.0), deadzone.1.clamp(0.0, 1.0));
+        self.deadzone_right = (deadzone.0.clamp(0.0, 0.99), deadzone.1.clamp(0.0, 0.99));
     }
 
     /// Gets the current (x, y) coordinates of the left stick.
@@ -389,9 +389,17 @@ impl DualSense {
     }
 }
 
-fn apply_deadzone((x, y): (f32, f32), deadzone: (f32, f32)) -> (f32, f32) {
-    let res_x = if x.abs() < deadzone.0 { 0.0 } else { x };
-    let res_y = if y.abs() < deadzone.1 { 0.0 } else { y };
+fn apply_deadzone((x, y): (f32, f32), (dz_x, dz_y): (f32, f32)) -> (f32, f32) {
+    let res_x = if x.abs() < dz_x {
+        0.0
+    } else {
+        (x - dz_x * x.signum()) / (1.0 - dz_x)
+    };
+    let res_y = if y.abs() < dz_y {
+        0.0
+    } else {
+        (y - dz_y * y.signum()) / (1.0 - dz_y)
+    };
     (res_x, res_y)
 }
 
