@@ -292,8 +292,8 @@ impl DualSense {
     /// Values range from -1.0 to 1.0.
     /// This function also applys deadzones.
     pub fn get_right_stick_normalized(&self) -> (f32, f32) {
-        let x_coord = (self.last_input.left_stick_x as f32 - 128.0) / 128.0;
-        let y_coord = (self.last_input.left_stick_y as f32 - 128.0) / 128.0;
+        let x_coord = (self.last_input.right_stick_x as f32 - 128.0) / 128.0;
+        let y_coord = (self.last_input.right_stick_y as f32 - 128.0) / 128.0;
         apply_deadzone((x_coord, y_coord), self.deadzone_right)
     }
 
