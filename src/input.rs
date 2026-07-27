@@ -47,9 +47,9 @@ pub struct DualSenseInputReportSimpleBT {
     pub r2_axis: u8,
 }
 
-impl From<DualSenseInputReportSimpleBT> for DualSenseInputUSB {
+impl From<DualSenseInputReportSimpleBT> for DualSenseInput {
     fn from(value: DualSenseInputReportSimpleBT) -> Self {
-        DualSenseInputUSB {
+        DualSenseInput {
             left_stick_x: value.left_stick_x,
             left_stick_y: value.left_stick_y,
             right_stick_x: value.right_stick_x,
@@ -69,10 +69,10 @@ impl From<DualSenseInputReportSimpleBT> for DualSenseInputUSB {
 pub struct DualSenseInputReportBT {
     report_id: u8,         // INPUT_REPORT_BT_ID
     pub flags_and_seq: u8, // HasHID1, HasMic1, Unknown2, SeqNumber4
-    pub base: DualSenseInputUSB,
+    pub base: DualSenseInput,
 }
 
-impl From<DualSenseInputReportBT> for DualSenseInputUSB {
+impl From<DualSenseInputReportBT> for DualSenseInput {
     fn from(value: DualSenseInputReportBT) -> Self {
         value.base
     }
@@ -82,7 +82,7 @@ pub const DEFAULT_DEADZONE: f32 = 0.1;
 
 #[repr(C, packed)]
 #[derive(FromBytes, IntoBytes, Immutable, Debug, Clone, Copy, Default)]
-pub struct DualSenseInputUSB {
+pub struct DualSenseInput {
     pub left_stick_x: u8,
     pub left_stick_y: u8,
     pub right_stick_x: u8,
@@ -117,7 +117,7 @@ pub struct DualSenseInputUSB {
     pub aes_cmac: u8,          // 55
 }
 
-impl DualSenseInputUSB {
+impl DualSenseInput {
     pub fn is_button_down(&self, b: Button) -> bool {
         match b {
             // D-pad: treat diagonal positions as also pressing both relevant directions
@@ -230,7 +230,7 @@ impl DualSenseInputUSB {
 
     /// new.diff(&old).is_button_down() => button pressed
     /// old.diff(&new).is_button_down() => button released
-    pub fn diff(&self, other: &DualSenseInputUSB) -> DualSenseInputUSB {
+    pub fn diff(&self, other: &DualSenseInput) -> DualSenseInput {
         let mut diff = *self;
         diff.buttons_low = self.buttons_low & !other.buttons_low;
         // dpad is handled differently
@@ -346,7 +346,7 @@ pub struct DualSenseInputReport31 {
     pub tag: u8,       // Usually 0xA1 (BT header tag)
 
     // Reuse your 0x01 logic here (ensure 0x01 struct DOES NOT have report_id field)
-    pub base: DualSenseInputUSB,
+    pub base: DualSenseInput,
 
     pub counter: u8,    // Changes every report
     pub r2_axis: u8,    // Duplicated in some firmwares

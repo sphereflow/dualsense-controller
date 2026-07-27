@@ -8,7 +8,7 @@ use thiserror::Error;
 use zerocopy::{IntoBytes, TryFromBytes};
 
 use crate::button::Button;
-use crate::input::{DualSenseInputReportBT, DualSenseInputReportSimpleBT, DualSenseInputUSB};
+use crate::input::{DualSenseInput, DualSenseInputReportBT, DualSenseInputReportSimpleBT};
 use crate::output::DualSenseOutput;
 use crate::output::{DualSenseOutputReportBT, TriggerFFB};
 use crate::report::Report;
@@ -31,10 +31,10 @@ pub const OUTPUT_REPORT_BT_TAG: u8 = 0x10;
 
 #[derive(Debug)]
 pub struct DualSense {
-    input_channel: Receiver<DualSenseInputUSB>,
-    pub last_input: DualSenseInputUSB,
-    diff_pressed: DualSenseInputUSB,
-    diff_released: DualSenseInputUSB,
+    input_channel: Receiver<DualSenseInput>,
+    pub last_input: DualSenseInput,
+    diff_pressed: DualSenseInput,
+    diff_released: DualSenseInput,
     current_output: DualSenseOutput,
     output_channel: Arc<Mutex<Option<DualSenseOutput>>>,
     join_handle: Option<JoinHandle<Result<(), DualSenseError>>>,
@@ -64,9 +64,9 @@ impl DualSense {
         });
         Ok(DualSense {
             input_channel,
-            last_input: DualSenseInputUSB::default(),
-            diff_pressed: DualSenseInputUSB::default(),
-            diff_released: DualSenseInputUSB::default(),
+            last_input: DualSenseInput::default(),
+            diff_pressed: DualSenseInput::default(),
+            diff_released: DualSenseInput::default(),
             current_output: DualSenseOutput::default(),
             output_channel,
             join_handle: Some(join_handle),
@@ -116,7 +116,7 @@ impl DualSense {
         device: HidDevice,
         is_bluetooth: bool,
         running: Arc<AtomicBool>,
-        send_input: Sender<DualSenseInputUSB>,
+        send_input: Sender<DualSenseInput>,
         receive_output: Arc<Mutex<Option<DualSenseOutput>>>,
     ) -> Result<(), DualSenseError> {
         // enable_extended_mode(&device);
@@ -172,7 +172,7 @@ impl DualSense {
                                 input_packet_num += 1;
                             }
                         } else {
-                            type Rep = Report<DualSenseInputUSB, 1>;
+                            type Rep = Report<DualSenseInput, 1>;
                             if let Ok(report) =
                                 Rep::try_read_from_prefix(&input_report_buffer[..size])
                             {
@@ -432,5 +432,5 @@ pub enum DualSenseError {
     ChannelRecvError(#[from] crossbeam_channel::RecvError),
 
     #[error("Channel send error: Input")]
-    ChannelSendErrorInput(#[from] crossbeam_channel::SendError<DualSenseInputUSB>),
+    ChannelSendErrorInput(#[from] crossbeam_channel::SendError<DualSenseInput>),
 }
