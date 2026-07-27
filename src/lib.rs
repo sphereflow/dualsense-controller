@@ -388,8 +388,8 @@ impl DualSense {
 }
 
 fn apply_deadzone((x, y): (f32, f32), deadzone: (f32, f32)) -> (f32, f32) {
-    let res_x = if x.abs() < deadzone.0 { 0.0 } else { 1.0 };
-    let res_y = if y.abs() < deadzone.1 { 0.0 } else { 1.0 };
+    let res_x = if x.abs() < deadzone.0 { 0.0 } else { x };
+    let res_y = if y.abs() < deadzone.1 { 0.0 } else { y };
     (res_x, res_y)
 }
 
