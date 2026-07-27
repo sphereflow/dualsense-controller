@@ -224,12 +224,13 @@ impl DualSense {
     /// The result is returned in coordinate form (x, y). Since the hardware features 2
     /// potentiometers 2 maximum values are recorded.
     /// Note: outliers will scew the results.
-    pub fn probe_dead_zone_left(&self, duration: Option<Duration>) -> (f32, f32) {
+    pub fn probe_dead_zone_left(&mut self, duration: Option<Duration>) -> (f32, f32) {
         let start = Instant::now();
         let max_duration = duration.unwrap_or(Duration::from_secs(1));
         let mut stick_x_max: f32 = 0.;
         let mut stick_y_max: f32 = 0.;
         loop {
+            self.update_input();
             let duration = Instant::now() - start;
             if duration > max_duration {
                 break;
