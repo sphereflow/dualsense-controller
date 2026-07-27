@@ -32,7 +32,7 @@ pub const OUTPUT_REPORT_BT_TAG: u8 = 0x10;
 #[derive(Debug)]
 pub struct DualSense {
     input_channel: Receiver<DualSenseInput>,
-    pub last_input: DualSenseInput,
+    last_input: DualSenseInput,
     diff_pressed: DualSenseInput,
     diff_released: DualSenseInput,
     current_output: DualSenseOutput,
@@ -386,6 +386,10 @@ impl DualSense {
         if old_output != self.current_output {
             self.send_current_output();
         }
+    }
+
+    pub fn get_last_input(&self) -> DualSenseInput {
+        self.last_input
     }
 }
 
