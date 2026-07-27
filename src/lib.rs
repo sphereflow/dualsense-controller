@@ -360,9 +360,6 @@ pub enum DualSenseError {
     #[error("Failed to lock Output Mutex")]
     LockMutexError(#[from] MutexError),
 
-    #[error("Channel send error: Output")]
-    ChannelSendErrorOutput(#[from] crossbeam_channel::SendError<DualSenseOutput>),
-
     #[error("Channel send error: Input")]
     ChannelSendErrorInput(#[from] crossbeam_channel::SendError<DualSenseInputUSB>),
 }
