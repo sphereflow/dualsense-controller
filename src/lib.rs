@@ -127,7 +127,6 @@ impl DualSense {
             if let Ok(mutex_guard) = receive_output.try_lock().as_mut()
                 && let Some(output) = mutex_guard.take()
             {
-                let output = DualSenseOutput::clone(&output);
                 if !is_bluetooth {
                     let report: Report<DualSenseOutput, { OUTPUT_REPORT_USB_ID }> =
                         Report::new(output);
