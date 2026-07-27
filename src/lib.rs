@@ -122,10 +122,14 @@ impl DualSense {
         let mut output_seq_tag_bt: u8 = 0;
 
         while running.load(Ordering::Relaxed) {
-            // 1. Process any pending outputs first
-            if let Ok(mut mutex_guard) = receive_output.lock()
-                && let Some(output) = mutex_guard.take()
-            {
+            // 1. Extract pending output and release the mutex lock IMMEDIATELY
+            // before performing the blocking device.write() call.
+            let pending_output = receive_output
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .take();
+
+            if let Some(output) = pending_output {
                 if !is_bluetooth {
                     let report: Report<DualSenseOutput, { OUTPUT_REPORT_USB_ID }> =
                         Report::new(output);
@@ -226,33 +230,23 @@ impl DualSense {
         self.diff_released.is_button_down(button)
     }
 
-    fn send_current_output(&mut self) -> Result<(), DualSenseError> {
+    fn send_current_output(&mut self) {
         let mut guard = self
             .output_channel
             .lock()
             .unwrap_or_else(|e| e.into_inner());
         guard.replace(self.current_output);
-        Ok(())
     }
 
-    pub fn set_rumble_left(&mut self, left: u8, power_reduction: u8) -> Result<(), DualSenseError> {
-        self.set_rumble(left, self.current_output.rumble_right, power_reduction)
+    pub fn set_rumble_left(&mut self, left: u8, power_reduction: u8) {
+        self.set_rumble(left, self.current_output.rumble_right, power_reduction);
     }
 
-    pub fn set_rumble_right(
-        &mut self,
-        right: u8,
-        power_reduction: u8,
-    ) -> Result<(), DualSenseError> {
-        self.set_rumble(self.current_output.rumble_left, right, power_reduction)
+    pub fn set_rumble_right(&mut self, right: u8, power_reduction: u8) {
+        self.set_rumble(self.current_output.rumble_left, right, power_reduction);
     }
 
-    fn set_rumble(
-        &mut self,
-        left: u8,
-        right: u8,
-        power_reduction: u8,
-    ) -> Result<(), DualSenseError> {
+    fn set_rumble(&mut self, left: u8, right: u8, power_reduction: u8) {
         let old_output = self.current_output;
         self.current_output.set_use_rumble_no_haptics(true);
         self.current_output.set_rumble_left(left);
@@ -266,28 +260,22 @@ impl DualSense {
         let diff_power_reduction = old_output.get_rumble_motor_power_reduction()
             != self.current_output.get_rumble_motor_power_reduction();
         if diff_haptics || diff_rumble_left || diff_rumble_right || diff_power_reduction {
-            self.send_current_output()?;
+            self.send_current_output();
         }
-        Ok(())
     }
 
-    pub fn set_triggers(
-        &mut self,
-        left: TriggerFFB,
-        right: TriggerFFB,
-    ) -> Result<(), DualSenseError> {
+    pub fn set_triggers(&mut self, left: TriggerFFB, right: TriggerFFB) {
         let old_output = self.current_output;
         self.current_output.set_allow_left_trigger_ffb(true); // Enable Trigger Effects
         self.current_output.set_allow_right_trigger_ffb(true); // Enable Trigger Effects
         self.current_output.left_trigger_ffb = left;
         self.current_output.right_trigger_ffb = right;
         if old_output != self.current_output {
-            self.send_current_output()?;
+            self.send_current_output();
         }
-        Ok(())
     }
 
-    pub fn set_led_color(&mut self, r: u8, g: u8, b: u8) -> Result<(), DualSenseError> {
+    pub fn set_led_color(&mut self, r: u8, g: u8, b: u8) {
         let old_output = self.current_output;
         self.current_output.set_allow_led_color(true);
         self.current_output.set_reset_lights(false);
@@ -297,12 +285,11 @@ impl DualSense {
         self.current_output.set_lightbar_green(g);
         self.current_output.set_lightbar_blue(b);
         if old_output != self.current_output {
-            self.send_current_output()?;
+            self.send_current_output();
         }
-        Ok(())
     }
 
-    pub fn clear_effects(&mut self) -> Result<(), DualSenseError> {
+    pub fn clear_effects(&mut self) {
         let old_output = self.current_output;
         // We set the flags to 1 to tell the controller "update these fields"
         // Since the fields themselves are zeroed (via new_zeroed), the hardware turns off.
@@ -313,15 +300,14 @@ impl DualSense {
         // are already 0x00 thanks to new_zeroed().
 
         if old_output != self.current_output {
-            self.send_current_output()?;
+            self.send_current_output();
         }
-        Ok(())
     }
 }
 
 impl Drop for DualSense {
     fn drop(&mut self) {
-        self.clear_effects().ok();
+        self.clear_effects();
         thread::sleep(Duration::from_millis(5));
         self.running.store(false, Ordering::Relaxed);
         if let Some(handle) = self.join_handle.take() {
