@@ -3,7 +3,7 @@ use hidapi::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use thiserror::Error;
 use zerocopy::{IntoBytes, TryFromBytes};
 
@@ -40,6 +40,8 @@ pub struct DualSense {
     join_handle: Option<JoinHandle<Result<(), DualSenseError>>>,
     running: Arc<AtomicBool>,
     pub is_bluetooth: bool,
+    deadzone_left: (f32, f32),
+    deadzone_right: (f32, f32),
 }
 
 impl DualSense {
@@ -70,6 +72,8 @@ impl DualSense {
             join_handle: Some(join_handle),
             running,
             is_bluetooth,
+            deadzone_left: (0.0, 0.0),
+            deadzone_right: (0.0, 0.0),
         })
     }
 
@@ -215,6 +219,84 @@ impl DualSense {
         self.diff_released = old.diff(&self.last_input);
     }
 
+    /// Probes the left stick values for the time of duration. Duration defaults to 1 second.
+    /// The result is the maximum deviation from the zero position normalized to the range of 0.0 .. 1.0.
+    /// The result is returned in coordinate form (x, y). Since the hardware features 2
+    /// potentiometers 2 maximum values are recorded.
+    /// Note: outliers will scew the results.
+    pub fn probe_dead_zone_left(&self, duration: Option<Duration>) -> (f32, f32) {
+        let start = Instant::now();
+        let max_duration = duration.unwrap_or(Duration::from_secs(1));
+        let mut stick_x_max: f32 = 0.;
+        let mut stick_y_max: f32 = 0.;
+        loop {
+            let duration = Instant::now() - start;
+            if duration > max_duration {
+                break;
+            }
+            stick_x_max = stick_x_max.max((self.last_input.left_stick_x as f32 - 128.).abs());
+            stick_y_max = stick_y_max.max((self.last_input.left_stick_y as f32 - 128.).abs());
+            thread::sleep(Duration::from_millis(1));
+        }
+        let x_normalized: f32 = stick_x_max / 128.;
+        let y_normalized: f32 = stick_y_max / 128.;
+        (x_normalized, y_normalized)
+    }
+
+    /// Probes the right stick values for the time of duration. Duration defaults to 1 second.
+    /// The result is the maximum deviation from the zero position normalized to the range of 0.0 .. 1.0.
+    /// The result is returned in coordinate form (x, y). Since the hardware features 2
+    /// potentiometers 2 maximum values are recorded.
+    /// Note: outliers will scew the results.
+    pub fn probe_dead_zone_right(&self, duration: Option<Duration>) -> (f32, f32) {
+        let start = Instant::now();
+        let max_duration = duration.unwrap_or(Duration::from_secs(1));
+        let mut stick_x_max: f32 = 0.;
+        let mut stick_y_max: f32 = 0.;
+        loop {
+            let duration = Instant::now() - start;
+            if duration > max_duration {
+                break;
+            }
+            stick_x_max = stick_x_max.max((self.last_input.right_stick_x as f32 - 128.).abs());
+            stick_y_max = stick_y_max.max((self.last_input.right_stick_y as f32 - 128.).abs());
+            thread::sleep(Duration::from_millis(1));
+        }
+        let x_normalized: f32 = stick_x_max / 128.;
+        let y_normalized: f32 = stick_y_max / 128.;
+        (x_normalized, y_normalized)
+    }
+
+    /// Sets the deadzone of the left stick values range from 0.0 to 1.0.
+    /// Values out of range will be clamped
+    pub fn set_dead_zone_left(&mut self, deadzone: (f32, f32)) {
+        self.deadzone_left = (deadzone.0.clamp(0.0, 1.0), deadzone.1.clamp(0.0, 1.0));
+    }
+
+    /// Sets the deadzone of the right stick values range from 0.0 to 1.0.
+    /// Values out of range will be clamped
+    pub fn set_dead_zone_right(&mut self, deadzone: (f32, f32)) {
+        self.deadzone_right = (deadzone.0.clamp(0.0, 1.0), deadzone.1.clamp(0.0, 1.0));
+    }
+
+    /// Gets the current (x, y) coordinates of the left stick.
+    /// Values range from -1.0 to 1.0.
+    /// This function also applys deadzones.
+    pub fn get_left_stick_normalized(&self) -> (f32, f32) {
+        let x_coord = (self.last_input.left_stick_x as f32 - 128.0) / 128.0;
+        let y_coord = (self.last_input.left_stick_y as f32 - 128.0) / 128.0;
+        apply_deadzone((x_coord, y_coord), self.deadzone_left)
+    }
+
+    /// Gets the current (x, y) coordinates of the right stick.
+    /// Values range from -1.0 to 1.0.
+    /// This function also applys deadzones.
+    pub fn get_right_stick_normalized(&self) -> (f32, f32) {
+        let x_coord = (self.last_input.left_stick_x as f32 - 128.0) / 128.0;
+        let y_coord = (self.last_input.left_stick_y as f32 - 128.0) / 128.0;
+        apply_deadzone((x_coord, y_coord), self.deadzone_right)
+    }
+
     /// returns if the button was held down while calling update_input
     pub fn is_button_down(&self, button: Button) -> bool {
         self.last_input.is_button_down(button)
@@ -303,6 +385,12 @@ impl DualSense {
             self.send_current_output();
         }
     }
+}
+
+fn apply_deadzone((x, y): (f32, f32), deadzone: (f32, f32)) -> (f32, f32) {
+    let res_x = if x.abs() < deadzone.0 { 0.0 } else { 1.0 };
+    let res_y = if y.abs() < deadzone.1 { 0.0 } else { 1.0 };
+    (res_x, res_y)
 }
 
 impl Drop for DualSense {
