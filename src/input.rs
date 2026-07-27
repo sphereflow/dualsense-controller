@@ -67,7 +67,7 @@ impl From<DualSenseInputReportSimpleBT> for DualSenseInputUSB {
 #[repr(C, packed)]
 #[derive(FromBytes, IntoBytes, Immutable, Debug, Clone, Copy, Default)]
 pub struct DualSenseInputReportBT {
-    report_id: u8, // INPUT_REPORT_BT_ID
+    report_id: u8,         // INPUT_REPORT_BT_ID
     pub flags_and_seq: u8, // HasHID1, HasMic1, Unknown2, SeqNumber4
     pub base: DualSenseInputUSB,
 }
@@ -77,6 +77,8 @@ impl From<DualSenseInputReportBT> for DualSenseInputUSB {
         value.base
     }
 }
+
+pub const DEFAULT_DEADZONE: f32 = 0.1;
 
 #[repr(C, packed)]
 #[derive(FromBytes, IntoBytes, Immutable, Debug, Clone, Copy, Default)]
@@ -137,25 +139,55 @@ impl DualSenseInputUSB {
             ),
 
             // Face buttons
-            Button::Square => ButtonsLow::from_bits_truncate(self.buttons_low).contains(ButtonsLow::SQUARE),
-            Button::Cross => ButtonsLow::from_bits_truncate(self.buttons_low).contains(ButtonsLow::CROSS),
-            Button::Circle => ButtonsLow::from_bits_truncate(self.buttons_low).contains(ButtonsLow::CIRCLE),
-            Button::Triangle => ButtonsLow::from_bits_truncate(self.buttons_low).contains(ButtonsLow::TRIANGLE),
+            Button::Square => {
+                ButtonsLow::from_bits_truncate(self.buttons_low).contains(ButtonsLow::SQUARE)
+            }
+            Button::Cross => {
+                ButtonsLow::from_bits_truncate(self.buttons_low).contains(ButtonsLow::CROSS)
+            }
+            Button::Circle => {
+                ButtonsLow::from_bits_truncate(self.buttons_low).contains(ButtonsLow::CIRCLE)
+            }
+            Button::Triangle => {
+                ButtonsLow::from_bits_truncate(self.buttons_low).contains(ButtonsLow::TRIANGLE)
+            }
 
             // Shoulders & triggers
-            Button::L1 => ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::L1),
-            Button::R1 => ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::R1),
-            Button::L2 => ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::L2),
-            Button::R2 => ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::R2),
-            Button::L3 => ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::L3),
-            Button::R3 => ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::R3),
+            Button::L1 => {
+                ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::L1)
+            }
+            Button::R1 => {
+                ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::R1)
+            }
+            Button::L2 => {
+                ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::L2)
+            }
+            Button::R2 => {
+                ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::R2)
+            }
+            Button::L3 => {
+                ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::L3)
+            }
+            Button::R3 => {
+                ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::R3)
+            }
 
             // System/misc buttons
-            Button::PS => ButtonsMisc::from_bits_truncate(self.buttons_misc).contains(ButtonsMisc::PS),
-            Button::Touchpad => ButtonsMisc::from_bits_truncate(self.buttons_misc).contains(ButtonsMisc::TOUCHPAD),
-            Button::Mute => ButtonsMisc::from_bits_truncate(self.buttons_misc).contains(ButtonsMisc::MUTE),
-            Button::Create => ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::CREATE),
-            Button::Menu => ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::MENU),
+            Button::PS => {
+                ButtonsMisc::from_bits_truncate(self.buttons_misc).contains(ButtonsMisc::PS)
+            }
+            Button::Touchpad => {
+                ButtonsMisc::from_bits_truncate(self.buttons_misc).contains(ButtonsMisc::TOUCHPAD)
+            }
+            Button::Mute => {
+                ButtonsMisc::from_bits_truncate(self.buttons_misc).contains(ButtonsMisc::MUTE)
+            }
+            Button::Create => {
+                ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::CREATE)
+            }
+            Button::Menu => {
+                ButtonsHigh::from_bits_truncate(self.buttons_high).contains(ButtonsHigh::MENU)
+            }
         }
     }
 
