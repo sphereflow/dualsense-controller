@@ -30,7 +30,7 @@ pub struct DualSenseOutput {
 
     // 07 MicSelect2 EchoCancelEnable1 NoiseCancelEnable1 OutputPathSelect2 InputPathSelect2
     pub(crate) audio_control_flags_1: u8,
-    pub mute_light_mode: u8, // 08
+    pub(crate) mute_light_mode: u8, // 08
 
     // 09 PowerSave(Touch1 Motion1 Haptic1 Audio1)4 Mute(Mic1 Speaker1 Headphone1 Haptic1)4
     pub(crate) power_save_mute_control: u8,
@@ -54,13 +54,19 @@ pub struct DualSenseOutput {
 
     /// 39 HapticLowPassFilter1 Unknown7
     pub haptic_low_pass_filter: u8,
-    unknown: u8,                  // 40
+    unknown: u8, // 40
+    /// Value to controll light animations
     pub light_fade_animation: u8, // 41
-    pub light_brightness: u8,     // 42
-    pub player_light_flags: u8,   // 43
-    pub lightbar_red: u8,         // 44
-    pub lightbar_green: u8,       // 45
-    pub lightbar_blue: u8,        // 46
+    /// Brightness of the RGB LED
+    pub light_brightness: u8, // 42
+    /// Value to controll the lit areas on the light strip
+    pub player_light_flags: u8, // 43
+    /// RGB LED red component
+    pub lightbar_red: u8, // 44
+    /// RGB LED green component
+    pub lightbar_green: u8, // 45
+    /// RGB LED blue component
+    pub lightbar_blue: u8, // 46
 }
 
 bitflags! {
@@ -213,11 +219,11 @@ impl DualSenseOutput {
 
     // --- Flags 2 (LSB first) ---
     /// Getter for [Flags2].
-    pub fn flags2(&self) -> Flags2 {
+    fn flags2(&self) -> Flags2 {
         Flags2::from_bits_truncate(self.flags_2)
     }
     /// Setter for [Flags2].
-    pub fn set_flags2(&mut self, f: Flags2) {
+    fn set_flags2(&mut self, f: Flags2) {
         self.flags_2 = f.bits();
     }
 
@@ -422,106 +428,108 @@ impl DualSenseOutput {
 
     // --- Power save / Mute control (LSB first) ---
     /// Returns the [PowerSaveMute] bitflags.
-    pub fn power_save_flags(&self) -> PowerSaveMute {
+    fn power_save_mute_flags(&self) -> PowerSaveMute {
         PowerSaveMute::from_bits_truncate(self.power_save_mute_control)
     }
     /// Sets the [PowerSaveMute] bitflags.
-    pub fn set_power_save_flags(&mut self, f: PowerSaveMute) {
+    fn set_power_save_mute_flags(&mut self, f: PowerSaveMute) {
         self.power_save_mute_control = f.bits();
     }
 
     /// Returns true if power save mode for touchpad is enabled.
     pub fn power_save_touch(&self) -> bool {
-        self.power_save_flags()
+        self.power_save_mute_flags()
             .contains(PowerSaveMute::POWER_SAVE_TOUCH)
     }
     /// Enables or disables power save mode for touchpad.
     pub fn set_power_save_touch(&mut self, on: bool) {
-        let mut f = self.power_save_flags();
+        let mut f = self.power_save_mute_flags();
         f.set(PowerSaveMute::POWER_SAVE_TOUCH, on);
-        self.set_power_save_flags(f);
+        self.set_power_save_mute_flags(f);
     }
 
     /// Returns true if power save mode for motion sensors is enabled.
     pub fn power_save_motion(&self) -> bool {
-        self.power_save_flags()
+        self.power_save_mute_flags()
             .contains(PowerSaveMute::POWER_SAVE_MOTION)
     }
     /// Enables or disables power save mode for motion sensors.
     pub fn set_power_save_motion(&mut self, on: bool) {
-        let mut f = self.power_save_flags();
+        let mut f = self.power_save_mute_flags();
         f.set(PowerSaveMute::POWER_SAVE_MOTION, on);
-        self.set_power_save_flags(f);
+        self.set_power_save_mute_flags(f);
     }
 
     /// Returns true if power save mode for haptics is enabled.
     pub fn power_save_haptic(&self) -> bool {
-        self.power_save_flags()
+        self.power_save_mute_flags()
             .contains(PowerSaveMute::POWER_SAVE_HAPTIC)
     }
     /// Enables or disables power save mode for haptics.
     pub fn set_power_save_haptic(&mut self, on: bool) {
-        let mut f = self.power_save_flags();
+        let mut f = self.power_save_mute_flags();
         f.set(PowerSaveMute::POWER_SAVE_HAPTIC, on);
-        self.set_power_save_flags(f);
+        self.set_power_save_mute_flags(f);
     }
 
     /// Returns true if power save mode for audio is enabled.
     pub fn power_save_audio(&self) -> bool {
-        self.power_save_flags()
+        self.power_save_mute_flags()
             .contains(PowerSaveMute::POWER_SAVE_AUDIO)
     }
     /// Enables or disables power save mode for audio.
     pub fn set_power_save_audio(&mut self, on: bool) {
-        let mut f = self.power_save_flags();
+        let mut f = self.power_save_mute_flags();
         f.set(PowerSaveMute::POWER_SAVE_AUDIO, on);
-        self.set_power_save_flags(f);
+        self.set_power_save_mute_flags(f);
     }
 
     /// Returns true if the microphone is muted.
     pub fn mute_mic(&self) -> bool {
-        self.power_save_flags().contains(PowerSaveMute::MUTE_MIC)
+        self.power_save_mute_flags()
+            .contains(PowerSaveMute::MUTE_MIC)
     }
     /// Mutes or unmutes the microphone.
     pub fn set_mute_mic(&mut self, muted: bool) {
-        let mut f = self.power_save_flags();
+        let mut f = self.power_save_mute_flags();
         f.set(PowerSaveMute::MUTE_MIC, muted);
-        self.set_power_save_flags(f);
+        self.set_power_save_mute_flags(f);
     }
 
     /// Returns true if the built-in speaker is muted.
     pub fn mute_speaker(&self) -> bool {
-        self.power_save_flags()
+        self.power_save_mute_flags()
             .contains(PowerSaveMute::MUTE_SPEAKER)
     }
     /// Mutes or unmutes the built-in speaker.
     pub fn set_mute_speaker(&mut self, muted: bool) {
-        let mut f = self.power_save_flags();
+        let mut f = self.power_save_mute_flags();
         f.set(PowerSaveMute::MUTE_SPEAKER, muted);
-        self.set_power_save_flags(f);
+        self.set_power_save_mute_flags(f);
     }
 
     /// Returns true if the headphone output is muted.
     pub fn mute_headphone(&self) -> bool {
-        self.power_save_flags()
+        self.power_save_mute_flags()
             .contains(PowerSaveMute::MUTE_HEADPHONE)
     }
     /// Mutes or unmutes the headphone output.
     pub fn set_mute_headphone(&mut self, muted: bool) {
-        let mut f = self.power_save_flags();
+        let mut f = self.power_save_mute_flags();
         f.set(PowerSaveMute::MUTE_HEADPHONE, muted);
-        self.set_power_save_flags(f);
+        self.set_power_save_mute_flags(f);
     }
 
     /// Returns true if haptics are muted.
     pub fn mute_haptic(&self) -> bool {
-        self.power_save_flags().contains(PowerSaveMute::MUTE_HAPTIC)
+        self.power_save_mute_flags()
+            .contains(PowerSaveMute::MUTE_HAPTIC)
     }
     /// Mutes or unmutes haptics.
     pub fn set_mute_haptic(&mut self, on: bool) {
-        let mut f = self.power_save_flags();
+        let mut f = self.power_save_mute_flags();
         f.set(PowerSaveMute::MUTE_HAPTIC, on);
-        self.set_power_save_flags(f);
+        self.set_power_save_mute_flags(f);
     }
 
     // --- Audio control flags 2 ---
@@ -558,11 +566,11 @@ impl DualSenseOutput {
 
     // --- Flags 3 ---
     /// Returns [Flags3] bitflags.
-    pub fn flags3(&self) -> Flags3 {
+    fn flags3(&self) -> Flags3 {
         Flags3::from_bits_truncate(self.flags_3)
     }
     /// Sets [Flags3] bitflags.
-    pub fn set_flags3(&mut self, f: Flags3) {
+    fn set_flags3(&mut self, f: Flags3) {
         self.flags_3 = f.bits();
     }
 
@@ -677,50 +685,27 @@ impl DualSenseOutput {
     }
 }
 
-// Bit masks and default values for DualSenseOutput
-const FLAGS1_ENABLE_RUMBLE_EMULATION: u8 = 0x01;
-const FLAGS1_USE_RUMBLE_NO_HAPTICS: u8 = 0x02;
-const FLAGS1_ALLOW_RIGHT_TRIGGER_FFB: u8 = 0x04;
-const FLAGS1_ALLOW_LEFT_TRIGGER_FFB: u8 = 0x08;
-const FLAGS1_ALLOW_HEADPHONE_VOLUME: u8 = 0x10;
-const FLAGS1_ALLOW_SPEAKER_VOLUME: u8 = 0x20;
-const FLAGS1_ALLOW_MIC_VOLUME: u8 = 0x40;
-const FLAGS1_ALLOW_AUDIO_CONTROL_1: u8 = 0x80;
-
-const FLAGS2_ALLOW_MUTE_LIGHT: u8 = 0x01;
-const FLAGS2_ALLOW_AUDIO_MUTE: u8 = 0x02;
-const FLAGS2_ALLOW_LED_COLOR: u8 = 0x04;
-const FLAGS2_RESET_LIGHTS: u8 = 0x08;
-const FLAGS2_ALLOW_PLAYER_INDICATORS: u8 = 0x10;
-const FLAGS2_ALLOW_HAPTIC_LOW_PASS: u8 = 0x20;
-const FLAGS2_ALLOW_MOTOR_POWER_LEVEL: u8 = 0x40;
-const FLAGS2_ALLOW_AUDIO_CONTROL_2: u8 = 0x80;
-
-const FLAGS3_ALLOW_LIGHT_BRIGHTNESS_CHANGE: u8 = 0x01;
-const FLAGS3_ALLOW_COLOR_LIGHT_FADE: u8 = 0x02;
-const FLAGS3_ENABLE_IMPROVED_RUMBLE: u8 = 0x04;
-
 // Default bit patterns chosen explicitly for readability.
-const DEFAULT_FLAGS_1: u8 = FLAGS1_ENABLE_RUMBLE_EMULATION
-    | FLAGS1_USE_RUMBLE_NO_HAPTICS
-    | FLAGS1_ALLOW_RIGHT_TRIGGER_FFB
-    | FLAGS1_ALLOW_LEFT_TRIGGER_FFB
-    | FLAGS1_ALLOW_HEADPHONE_VOLUME
-    | FLAGS1_ALLOW_SPEAKER_VOLUME
-    | FLAGS1_ALLOW_MIC_VOLUME
-    | FLAGS1_ALLOW_AUDIO_CONTROL_1;
+const DEFAULT_FLAGS_1: u8 = Flags1::ENABLE_RUMBLE_EMULATION.bits()
+    | Flags1::USE_RUMBLE_NO_HAPTICS.bits()
+    | Flags1::ALLOW_RIGHT_TRIGGER_FFB.bits()
+    | Flags1::ALLOW_LEFT_TRIGGER_FFB.bits()
+    | Flags1::ALLOW_HEADPHONE_VOLUME.bits()
+    | Flags1::ALLOW_SPEAKER_VOLUME.bits()
+    | Flags1::ALLOW_MIC_VOLUME.bits()
+    | Flags1::ALLOW_AUDIO_CONTROL_1.bits();
 
-const DEFAULT_FLAGS_2: u8 = FLAGS2_ALLOW_MUTE_LIGHT
-    | FLAGS2_ALLOW_AUDIO_MUTE
-    | FLAGS2_ALLOW_LED_COLOR
-    | FLAGS2_ALLOW_PLAYER_INDICATORS
-    | FLAGS2_ALLOW_HAPTIC_LOW_PASS
-    | FLAGS2_ALLOW_MOTOR_POWER_LEVEL
-    | FLAGS2_ALLOW_AUDIO_CONTROL_2;
+const DEFAULT_FLAGS_2: u8 = Flags2::ALLOW_MUTE_LIGHT.bits()
+    | Flags2::ALLOW_AUDIO_MUTE.bits()
+    | Flags2::ALLOW_LED_COLOR.bits()
+    | Flags2::ALLOW_PLAYER_INDICATORS.bits()
+    | Flags2::ALLOW_HAPTIC_LOW_PASS.bits()
+    | Flags2::ALLOW_MOTOR_POWER_LEVEL.bits()
+    | Flags2::ALLOW_AUDIO_CONTROL_2.bits();
 
-const DEFAULT_FLAGS_3: u8 = FLAGS3_ALLOW_LIGHT_BRIGHTNESS_CHANGE
-    | FLAGS3_ALLOW_COLOR_LIGHT_FADE
-    | FLAGS3_ENABLE_IMPROVED_RUMBLE;
+const DEFAULT_FLAGS_3: u8 = Flags3::ALLOW_LIGHT_BRIGHTNESS_CHANGE.bits()
+    | Flags3::ALLOW_COLOR_LIGHT_FADE.bits()
+    | Flags3::ENABLE_IMPROVED_RUMBLE.bits();
 
 impl DualSenseOutput {
     /// Construct a validated default DualSenseOutput. Use when callers want explicit defaults
