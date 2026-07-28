@@ -2,8 +2,10 @@ use bitflags::bitflags;
 use crc32fast::Hasher;
 use zerocopy::{FromZeros, Immutable, IntoBytes};
 
-/// Main struct for writing output to the controller
-/// with this you can controll rumble motors, the RGB LED, audio volumes and various flags
+/// Main struct for writing output to the controller.
+///
+/// Controls rumble motors, the RGB lightbar, audio volumes, trigger force feedback,
+/// player indicator LEDs, and power save flags.
 #[repr(C, packed)]
 #[derive(IntoBytes, Immutable, FromZeros, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DualSenseOutput {
@@ -17,11 +19,11 @@ pub struct DualSenseOutput {
     pub(crate) flags_2: u8,
     pub rumble_right: u8, // 02
     pub rumble_left: u8,  // 03
-    /// headphone volume
+    /// Headphone volume
     pub volume_headphones: u8, // 04
-    /// speaker volume
+    /// Speaker volume
     pub volume_speaker: u8, // 05
-    // microphone volume
+    /// Microphone volume
     pub volume_mic: u8, // 06
 
     // 07 MicSelect2 EchoCancelEnable1 NoiseCancelEnable1 OutputPathSelect2 InputPathSelect2
@@ -34,11 +36,11 @@ pub struct DualSenseOutput {
     pub right_trigger_ffb: TriggerFFB, // 10-20
     /// Force feedback for the left trigger
     pub left_trigger_ffb: TriggerFFB, // 21-31
-    /// Some kind of time stamp
+    /// Host timestamp value
     pub host_time_stamp: u32, // 32-35
 
     /// 36 TriggerMotorPowerReduction4 RumbleMotorPowerReduction4
-    /// in 12.5 % steps both values only have range 0-7
+    /// In 12.5% steps; both values only have range 0-7
     pub motor_power_level: u8,
 
     /// 37 SpeakerCompPreGain3 BeamformingEnable1 Unknown4
@@ -119,80 +121,88 @@ impl DualSenseOutput {
         self.flags_1 = f.bits();
     }
 
-    /// Getter for [Flags1::ENABLE_RUMBLE_EMULATION]
+    /// Returns true if rumble emulation is enabled.
     pub fn enable_rumble_emulation(&self) -> bool {
         self.flags1().contains(Flags1::ENABLE_RUMBLE_EMULATION)
     }
-    /// Setter for [Flags1::ENABLE_RUMBLE_EMULATION]
+    /// Enables or disables rumble emulation.
     pub fn set_enable_rumble_emulation(&mut self, on: bool) {
         let mut f = self.flags1();
         f.set(Flags1::ENABLE_RUMBLE_EMULATION, on);
         self.set_flags1(f);
     }
 
-    /// Getter for [Flags1::USE_RUMBLE_NO_HAPTICS]
+    /// Returns true if rumble motors are used instead of haptics.
     pub fn use_rumble_no_haptics(&self) -> bool {
         self.flags1().contains(Flags1::USE_RUMBLE_NO_HAPTICS)
     }
-    /// Setter for [Flags1::USE_RUMBLE_NO_HAPTICS]
+    /// Sets whether rumble motors are used instead of haptic actuators.
     pub fn set_use_rumble_no_haptics(&mut self, on: bool) {
         let mut f = self.flags1();
         f.set(Flags1::USE_RUMBLE_NO_HAPTICS, on);
         self.set_flags1(f);
     }
 
-    /// Returns true if force feedback is enabled for the right trigger
+    /// Returns true if force feedback is allowed for the right trigger.
     pub fn allow_right_trigger_ffb(&self) -> bool {
         self.flags1().contains(Flags1::ALLOW_RIGHT_TRIGGER_FFB)
     }
-    /// Turns force feedback for the right trigger on or off
+    /// Enables or disables force feedback updates for the right trigger.
     pub fn set_allow_right_trigger_ffb(&mut self, on: bool) {
         let mut f = self.flags1();
         f.set(Flags1::ALLOW_RIGHT_TRIGGER_FFB, on);
         self.set_flags1(f);
     }
 
-    /// Returns true if force feedback is enabled for the left trigger
+    /// Returns true if force feedback is allowed for the left trigger.
     pub fn allow_left_trigger_ffb(&self) -> bool {
         self.flags1().contains(Flags1::ALLOW_LEFT_TRIGGER_FFB)
     }
-    /// Turns force feedback for the left trigger on or off
+    /// Enables or disables force feedback updates for the left trigger.
     pub fn set_allow_left_trigger_ffb(&mut self, on: bool) {
         let mut f = self.flags1();
         f.set(Flags1::ALLOW_LEFT_TRIGGER_FFB, on);
         self.set_flags1(f);
     }
 
+    /// Returns true if headphone volume updates are allowed.
     pub fn allow_headphone_volume(&self) -> bool {
         self.flags1().contains(Flags1::ALLOW_HEADPHONE_VOLUME)
     }
+    /// Enables or disables headphone volume updates.
     pub fn set_allow_headphone_volume(&mut self, on: bool) {
         let mut f = self.flags1();
         f.set(Flags1::ALLOW_HEADPHONE_VOLUME, on);
         self.set_flags1(f);
     }
 
+    /// Returns true if built-in speaker volume updates are allowed.
     pub fn allow_speaker_volume(&self) -> bool {
         self.flags1().contains(Flags1::ALLOW_SPEAKER_VOLUME)
     }
+    /// Enables or disables built-in speaker volume updates.
     pub fn set_allow_speaker_volume(&mut self, on: bool) {
         let mut f = self.flags1();
         f.set(Flags1::ALLOW_SPEAKER_VOLUME, on);
         self.set_flags1(f);
     }
 
+    /// Returns true if microphone volume updates are allowed.
     pub fn allow_mic_volume(&self) -> bool {
         self.flags1().contains(Flags1::ALLOW_MIC_VOLUME)
     }
+    /// Enables or disables microphone volume updates.
     pub fn set_allow_mic_volume(&mut self, on: bool) {
         let mut f = self.flags1();
         f.set(Flags1::ALLOW_MIC_VOLUME, on);
         self.set_flags1(f);
     }
 
+    /// Returns true if audio control register group 1 is allowed.
     pub fn allow_audio_control_1(&self) -> bool {
         self.flags1().contains(Flags1::ALLOW_AUDIO_CONTROL_1)
     }
+    /// Enables or disables audio control register group 1 updates.
     pub fn set_allow_audio_control_1(&mut self, on: bool) {
         let mut f = self.flags1();
         f.set(Flags1::ALLOW_AUDIO_CONTROL_1, on);
@@ -200,79 +210,97 @@ impl DualSenseOutput {
     }
 
     // --- Flags 2 (LSB first) ---
+    /// Getter for [Flags2].
     pub fn flags2(&self) -> Flags2 {
         Flags2::from_bits_truncate(self.flags_2)
     }
+    /// Setter for [Flags2].
     pub fn set_flags2(&mut self, f: Flags2) {
         self.flags_2 = f.bits();
     }
 
+    /// Returns true if mute button LED updates are allowed.
     pub fn allow_mute_light(&self) -> bool {
         self.flags2().contains(Flags2::ALLOW_MUTE_LIGHT)
     }
+    /// Enables or disables mute button LED updates.
     pub fn set_allow_mute_light(&mut self, on: bool) {
         let mut f = self.flags2();
         f.set(Flags2::ALLOW_MUTE_LIGHT, on);
         self.set_flags2(f);
     }
 
+    /// Returns true if audio mute flag updates are allowed.
     pub fn allow_audio_mute(&self) -> bool {
         self.flags2().contains(Flags2::ALLOW_AUDIO_MUTE)
     }
+    /// Enables or disables audio mute flag updates.
     pub fn set_allow_audio_mute(&mut self, on: bool) {
         let mut f = self.flags2();
         f.set(Flags2::ALLOW_AUDIO_MUTE, on);
         self.set_flags2(f);
     }
 
+    /// Returns true if RGB LED lightbar updates are allowed.
     pub fn allow_led_color(&self) -> bool {
         self.flags2().contains(Flags2::ALLOW_LED_COLOR)
     }
+    /// Enables or disables RGB LED lightbar updates.
     pub fn set_allow_led_color(&mut self, on: bool) {
         let mut f = self.flags2();
         f.set(Flags2::ALLOW_LED_COLOR, on);
         self.set_flags2(f);
     }
 
+    /// Returns true if reset lights flag is set.
     pub fn reset_lights(&self) -> bool {
         self.flags2().contains(Flags2::RESET_LIGHTS)
     }
+    /// Enables or disables light reset.
     pub fn set_reset_lights(&mut self, on: bool) {
         let mut f = self.flags2();
         f.set(Flags2::RESET_LIGHTS, on);
         self.set_flags2(f);
     }
 
+    /// Returns true if player indicator LED updates are allowed.
     pub fn allow_player_indicators(&self) -> bool {
         self.flags2().contains(Flags2::ALLOW_PLAYER_INDICATORS)
     }
+    /// Enables or disables player indicator LED updates.
     pub fn set_allow_player_indicators(&mut self, on: bool) {
         let mut f = self.flags2();
         f.set(Flags2::ALLOW_PLAYER_INDICATORS, on);
         self.set_flags2(f);
     }
 
+    /// Returns true if haptic low pass filter flag updates are allowed.
     pub fn allow_haptic_low_pass_filter_flag(&self) -> bool {
         self.flags2().contains(Flags2::ALLOW_HAPTIC_LOW_PASS)
     }
+    /// Enables or disables haptic low pass filter flag updates.
     pub fn set_allow_haptic_low_pass_filter_flag(&mut self, on: bool) {
         let mut f = self.flags2();
         f.set(Flags2::ALLOW_HAPTIC_LOW_PASS, on);
         self.set_flags2(f);
     }
 
+    /// Returns true if motor power level flag updates are allowed.
     pub fn allow_motor_power_level_flag(&self) -> bool {
         self.flags2().contains(Flags2::ALLOW_MOTOR_POWER_LEVEL)
     }
+    /// Enables or disables motor power level flag updates.
     pub fn set_allow_motor_power_level_flag(&mut self, on: bool) {
         let mut f = self.flags2();
         f.set(Flags2::ALLOW_MOTOR_POWER_LEVEL, on);
         self.set_flags2(f);
     }
 
+    /// Returns true if audio control register group 2 is allowed.
     pub fn allow_audio_control_2(&self) -> bool {
         self.flags2().contains(Flags2::ALLOW_AUDIO_CONTROL_2)
     }
+    /// Enables or disables audio control register group 2 updates.
     pub fn set_allow_audio_control_2(&mut self, on: bool) {
         let mut f = self.flags2();
         f.set(Flags2::ALLOW_AUDIO_CONTROL_2, on);
@@ -280,186 +308,214 @@ impl DualSenseOutput {
     }
 
     // --- Rumble / Volumes ---
+    /// Returns the intensity of the right rumble motor (`0..=255`).
     pub fn rumble_right(&self) -> u8 {
         self.rumble_right
     }
+    /// Sets the intensity of the right rumble motor (`0..=255`).
     pub fn set_rumble_right(&mut self, v: u8) {
-        self.rumble_right = v
+        self.rumble_right = v;
     }
 
+    /// Returns the intensity of the left rumble motor (`0..=255`).
     pub fn rumble_left(&self) -> u8 {
         self.rumble_left
     }
+    /// Sets the intensity of the left rumble motor (`0..=255`).
     pub fn set_rumble_left(&mut self, v: u8) {
-        self.rumble_left = v
+        self.rumble_left = v;
     }
 
+    /// Returns the headphone volume output level (`0..=255`).
     pub fn volume_headphones(&self) -> u8 {
         self.volume_headphones
     }
+    /// Sets the headphone volume output level (`0..=255`).
     pub fn set_volume_headphones(&mut self, v: u8) {
-        self.volume_headphones = v
+        self.volume_headphones = v;
     }
 
+    /// Returns the built-in speaker volume output level (`0..=255`).
     pub fn volume_speaker(&self) -> u8 {
         self.volume_speaker
     }
+    /// Sets the built-in speaker volume output level (`0..=255`).
     pub fn set_volume_speaker(&mut self, v: u8) {
-        self.volume_speaker = v
+        self.volume_speaker = v;
     }
 
+    /// Returns the microphone input gain level (`0..=255`).
     pub fn volume_mic(&self) -> u8 {
         self.volume_mic
     }
+    /// Sets the microphone input gain level (`0..=255`).
     pub fn set_volume_mic(&mut self, v: u8) {
-        self.volume_mic = v
+        self.volume_mic = v;
     }
 
     // --- Audio control flags 1 (bitfields, LSB first) ---
-    /// Mic select: bits 0-1
+    /// Returns the microphone select setting (bits 0-1).
     pub fn mic_select(&self) -> u8 {
         self.audio_control_flags_1 & 0x03
     }
+    /// Sets the microphone select setting (bits 0-1).
     pub fn set_mic_select(&mut self, sel: u8) {
-        self.audio_control_flags_1 = (self.audio_control_flags_1 & !0x03) | (sel & 0x03)
+        self.audio_control_flags_1 = (self.audio_control_flags_1 & !0x03) | (sel & 0x03);
     }
 
-    /// Echo cancel enable: bit 2
+    /// Returns true if echo cancellation is enabled.
     pub fn echo_cancel_enable(&self) -> bool {
         (self.audio_control_flags_1 & 0x04) != 0
     }
+    /// Enables or disables echo cancellation.
     pub fn set_echo_cancel_enable(&mut self, on: bool) {
         if on {
-            self.audio_control_flags_1 |= 0x04
+            self.audio_control_flags_1 |= 0x04;
         } else {
-            self.audio_control_flags_1 &= !0x04
+            self.audio_control_flags_1 &= !0x04;
         }
     }
 
-    /// Noise cancel enable: bit 3
+    /// Returns true if noise cancellation is enabled.
     pub fn noise_cancel_enable(&self) -> bool {
         (self.audio_control_flags_1 & 0x08) != 0
     }
+    /// Enables or disables noise cancellation.
     pub fn set_noise_cancel_enable(&mut self, on: bool) {
         if on {
-            self.audio_control_flags_1 |= 0x08
+            self.audio_control_flags_1 |= 0x08;
         } else {
-            self.audio_control_flags_1 &= !0x08
+            self.audio_control_flags_1 &= !0x08;
         }
     }
 
-    /// Getter
+    /// Returns the audio output path selection (bits 4-5).
     pub fn output_path_select(&self) -> u8 {
         (self.audio_control_flags_1 >> 4) & 0x03
     }
-    /// Setter
+    /// Sets the audio output path selection (bits 4-5).
     pub fn set_output_path_select(&mut self, sel: u8) {
         self.audio_control_flags_1 =
-            (self.audio_control_flags_1 & !(0x03 << 4)) | ((sel & 0x03) << 4)
+            (self.audio_control_flags_1 & !(0x03 << 4)) | ((sel & 0x03) << 4);
     }
 
-    /// Input path select: bits 6-7
+    /// Returns the audio input path selection (bits 6-7).
     pub fn input_path_select(&self) -> u8 {
         (self.audio_control_flags_1 >> 6) & 0x03
     }
+    /// Sets the audio input path selection (bits 6-7).
     pub fn set_input_path_select(&mut self, sel: u8) {
         self.audio_control_flags_1 =
-            (self.audio_control_flags_1 & !(0x03 << 6)) | ((sel & 0x03) << 6)
+            (self.audio_control_flags_1 & !(0x03 << 6)) | ((sel & 0x03) << 6);
     }
 
+    /// Returns the mute light LED mode mode byte.
     pub fn mute_light_mode(&self) -> u8 {
         self.mute_light_mode
     }
+    /// Sets the mute light LED mode mode byte.
     pub fn set_mute_light_mode(&mut self, v: u8) {
-        self.mute_light_mode = v
+        self.mute_light_mode = v;
     }
 
     // --- Power save / Mute control (LSB first) ---
+    /// Returns the [PowerSaveMute] bitflags.
     pub fn power_save_flags(&self) -> PowerSaveMute {
         PowerSaveMute::from_bits_truncate(self.power_save_mute_control)
     }
+    /// Sets the [PowerSaveMute] bitflags.
     pub fn set_power_save_flags(&mut self, f: PowerSaveMute) {
         self.power_save_mute_control = f.bits();
     }
 
+    /// Returns true if power save mode for touchpad is enabled.
     pub fn power_save_touch(&self) -> bool {
         self.power_save_flags()
             .contains(PowerSaveMute::POWER_SAVE_TOUCH)
     }
+    /// Enables or disables power save mode for touchpad.
     pub fn set_power_save_touch(&mut self, on: bool) {
         let mut f = self.power_save_flags();
         f.set(PowerSaveMute::POWER_SAVE_TOUCH, on);
         self.set_power_save_flags(f);
     }
 
+    /// Returns true if power save mode for motion sensors is enabled.
     pub fn power_save_motion(&self) -> bool {
         self.power_save_flags()
             .contains(PowerSaveMute::POWER_SAVE_MOTION)
     }
+    /// Enables or disables power save mode for motion sensors.
     pub fn set_power_save_motion(&mut self, on: bool) {
         let mut f = self.power_save_flags();
         f.set(PowerSaveMute::POWER_SAVE_MOTION, on);
         self.set_power_save_flags(f);
     }
 
+    /// Returns true if power save mode for haptics is enabled.
     pub fn power_save_haptic(&self) -> bool {
         self.power_save_flags()
             .contains(PowerSaveMute::POWER_SAVE_HAPTIC)
     }
+    /// Enables or disables power save mode for haptics.
     pub fn set_power_save_haptic(&mut self, on: bool) {
         let mut f = self.power_save_flags();
         f.set(PowerSaveMute::POWER_SAVE_HAPTIC, on);
         self.set_power_save_flags(f);
     }
 
+    /// Returns true if power save mode for audio is enabled.
     pub fn power_save_audio(&self) -> bool {
         self.power_save_flags()
             .contains(PowerSaveMute::POWER_SAVE_AUDIO)
     }
+    /// Enables or disables power save mode for audio.
     pub fn set_power_save_audio(&mut self, on: bool) {
         let mut f = self.power_save_flags();
         f.set(PowerSaveMute::POWER_SAVE_AUDIO, on);
         self.set_power_save_flags(f);
     }
 
-    /// Returns true if the microphone are muted
+    /// Returns true if the microphone is muted.
     pub fn mute_mic(&self) -> bool {
         self.power_save_flags().contains(PowerSaveMute::MUTE_MIC)
     }
-    /// Turns the speaker on or off
+    /// Mutes or unmutes the microphone.
     pub fn set_mute_mic(&mut self, muted: bool) {
         let mut f = self.power_save_flags();
         f.set(PowerSaveMute::MUTE_MIC, muted);
         self.set_power_save_flags(f);
     }
 
-    /// Returns true if the speaker is muted
+    /// Returns true if the built-in speaker is muted.
     pub fn mute_speaker(&self) -> bool {
         self.power_save_flags()
             .contains(PowerSaveMute::MUTE_SPEAKER)
     }
-    /// Turns the speaker on or off
+    /// Mutes or unmutes the built-in speaker.
     pub fn set_mute_speaker(&mut self, muted: bool) {
         let mut f = self.power_save_flags();
         f.set(PowerSaveMute::MUTE_SPEAKER, muted);
         self.set_power_save_flags(f);
     }
 
-    /// Returns true if the headphones are muted
+    /// Returns true if the headphone output is muted.
     pub fn mute_headphone(&self) -> bool {
         self.power_save_flags()
             .contains(PowerSaveMute::MUTE_HEADPHONE)
     }
-    /// Turns the headphones on or off
+    /// Mutes or unmutes the headphone output.
     pub fn set_mute_headphone(&mut self, muted: bool) {
         let mut f = self.power_save_flags();
         f.set(PowerSaveMute::MUTE_HEADPHONE, muted);
         self.set_power_save_flags(f);
     }
 
+    /// Returns true if haptics are muted.
     pub fn mute_haptic(&self) -> bool {
         self.power_save_flags().contains(PowerSaveMute::MUTE_HAPTIC)
     }
+    /// Mutes or unmutes haptics.
     pub fn set_mute_haptic(&mut self, on: bool) {
         let mut f = self.power_save_flags();
         f.set(PowerSaveMute::MUTE_HAPTIC, on);
@@ -467,136 +523,155 @@ impl DualSenseOutput {
     }
 
     // --- Audio control flags 2 ---
-    /// Speaker compensation pre-gain: bits 0-2
+    /// Returns speaker compensation pre-gain (bits 0-2).
     pub fn speaker_comp_pregain(&self) -> u8 {
         self.audio_control_flags_2 & 0x07
     }
+    /// Sets speaker compensation pre-gain (bits 0-2).
     pub fn set_speaker_comp_pregain(&mut self, v: u8) {
-        self.audio_control_flags_2 = (self.audio_control_flags_2 & !0x07) | (v & 0x07)
+        self.audio_control_flags_2 = (self.audio_control_flags_2 & !0x07) | (v & 0x07);
     }
 
-    /// Beamforming enable: bit 3
+    /// Returns true if microphone beamforming is enabled.
     pub fn beamforming_enable(&self) -> bool {
         (self.audio_control_flags_2 & 0x08) != 0
     }
+    /// Enables or disables microphone beamforming.
     pub fn set_beamforming_enable(&mut self, on: bool) {
         if on {
-            self.audio_control_flags_2 |= 0x08
+            self.audio_control_flags_2 |= 0x08;
         } else {
-            self.audio_control_flags_2 &= !0x08
+            self.audio_control_flags_2 &= !0x08;
         }
     }
 
-    /// Upper 4 bits are currently unknown
+    /// Returns upper 4 unknown bits of audio control flags 2.
     pub fn audio_control_flags_2_unknown(&self) -> u8 {
         self.audio_control_flags_2 >> 4
     }
+    /// Sets upper 4 unknown bits of audio control flags 2.
     pub fn set_audio_control_flags_2_unknown(&mut self, v: u8) {
-        self.audio_control_flags_2 = (self.audio_control_flags_2 & 0x0F) | ((v & 0x0F) << 4)
+        self.audio_control_flags_2 = (self.audio_control_flags_2 & 0x0F) | ((v & 0x0F) << 4);
     }
 
     // --- Flags 3 ---
+    /// Returns [Flags3] bitflags.
     pub fn flags3(&self) -> Flags3 {
         Flags3::from_bits_truncate(self.flags_3)
     }
+    /// Sets [Flags3] bitflags.
     pub fn set_flags3(&mut self, f: Flags3) {
         self.flags_3 = f.bits();
     }
 
+    /// Returns true if lightbar brightness changes are allowed.
     pub fn allow_light_brightness_change(&self) -> bool {
         self.flags3()
             .contains(Flags3::ALLOW_LIGHT_BRIGHTNESS_CHANGE)
     }
+    /// Enables or disables lightbar brightness changes.
     pub fn set_allow_light_brightness_change(&mut self, on: bool) {
         let mut f = self.flags3();
         f.set(Flags3::ALLOW_LIGHT_BRIGHTNESS_CHANGE, on);
         self.set_flags3(f);
     }
 
+    /// Returns true if color light fade animations are allowed.
     pub fn allow_color_light_fade_animation(&self) -> bool {
         self.flags3().contains(Flags3::ALLOW_COLOR_LIGHT_FADE)
     }
+    /// Enables or disables color light fade animations.
     pub fn set_allow_color_light_fade_animation(&mut self, on: bool) {
         let mut f = self.flags3();
         f.set(Flags3::ALLOW_COLOR_LIGHT_FADE, on);
         self.set_flags3(f);
     }
 
+    /// Returns true if improved rumble emulation is enabled.
     pub fn enable_improved_rumble_emulation(&self) -> bool {
         self.flags3().contains(Flags3::ENABLE_IMPROVED_RUMBLE)
     }
+    /// Enables or disables improved rumble emulation.
     pub fn set_enable_improved_rumble_emulation(&mut self, on: bool) {
         let mut f = self.flags3();
         f.set(Flags3::ENABLE_IMPROVED_RUMBLE, on);
         self.set_flags3(f);
     }
 
-    /// Returns [true] if the haptic low pass filter is enabled
+    /// Returns true if the haptic low pass filter is enabled.
     pub fn haptic_low_pass_filter_enabled(&self) -> bool {
         (self.haptic_low_pass_filter & 0x01) != 0
     }
-    /// Turns the haptic low pass filter on or off
+    /// Enables or disables the haptic low pass filter.
     pub fn set_haptic_low_pass_filter_enabled(&mut self, on: bool) {
         if on {
-            self.haptic_low_pass_filter |= 0x01
+            self.haptic_low_pass_filter |= 0x01;
         } else {
-            self.haptic_low_pass_filter &= !0x01
+            self.haptic_low_pass_filter &= !0x01;
         }
     }
+    /// Returns unknown bits of haptic low pass filter byte.
     pub fn haptic_low_pass_filter_unknown(&self) -> u8 {
         self.haptic_low_pass_filter >> 1
     }
+    /// Sets unknown bits of haptic low pass filter byte.
     pub fn set_haptic_low_pass_filter_unknown(&mut self, v: u8) {
-        self.haptic_low_pass_filter = (self.haptic_low_pass_filter & 0x01) | ((v & 0x7F) << 1)
+        self.haptic_low_pass_filter = (self.haptic_low_pass_filter & 0x01) | ((v & 0x7F) << 1);
     }
 
     // --- Light and player fields ---
+    /// Returns the light fade animation mode byte.
     pub fn light_fade_animation(&self) -> u8 {
         self.light_fade_animation
     }
+    /// Sets the light fade animation mode byte.
     pub fn set_light_fade_animation(&mut self, v: u8) {
-        self.light_fade_animation = v
+        self.light_fade_animation = v;
     }
 
+    /// Returns lightbar brightness setting (`0..=2` where 0=bright, 1=medium, 2=dim).
     pub fn light_brightness(&self) -> u8 {
         self.light_brightness
     }
+    /// Sets lightbar brightness setting (`0..=2` where 0=bright, 1=medium, 2=dim).
     pub fn set_light_brightness(&mut self, v: u8) {
-        self.light_brightness = v
+        self.light_brightness = v;
     }
 
+    /// Returns player indicator LED flags.
     pub fn player_light_flags(&self) -> u8 {
         self.player_light_flags
     }
+    /// Sets player indicator LED flags.
     pub fn set_player_light_flags(&mut self, v: u8) {
-        self.player_light_flags = v
+        self.player_light_flags = v;
     }
 
-    /// Returns the intensity of the red part of the RGB LED
+    /// Returns the intensity of the red part of the RGB LED (`0..=255`).
     pub fn lightbar_red(&self) -> u8 {
         self.lightbar_red
     }
-    /// Sets the intensity of the red part of the RGB LED
+    /// Sets the intensity of the red part of the RGB LED (`0..=255`).
     pub fn set_lightbar_red(&mut self, v: u8) {
-        self.lightbar_red = v
+        self.lightbar_red = v;
     }
 
-    /// Returns the intensity of the green part of the RGB LED
+    /// Returns the intensity of the green part of the RGB LED (`0..=255`).
     pub fn lightbar_green(&self) -> u8 {
         self.lightbar_green
     }
-    /// Sets the intensity of the green part of the RGB LED
+    /// Sets the intensity of the green part of the RGB LED (`0..=255`).
     pub fn set_lightbar_green(&mut self, v: u8) {
-        self.lightbar_green = v
+        self.lightbar_green = v;
     }
 
-    /// Returns the intensity of the blue part of the RGB LED
+    /// Returns the intensity of the blue part of the RGB LED (`0..=255`).
     pub fn lightbar_blue(&self) -> u8 {
         self.lightbar_blue
     }
-    /// Sets the intensity of the blue part of the RGB LED
+    /// Sets the intensity of the blue part of the RGB LED (`0..=255`).
     pub fn set_lightbar_blue(&mut self, v: u8) {
-        self.lightbar_blue = v
+        self.lightbar_blue = v;
     }
 }
 
@@ -623,8 +698,7 @@ const FLAGS3_ALLOW_LIGHT_BRIGHTNESS_CHANGE: u8 = 0x01;
 const FLAGS3_ALLOW_COLOR_LIGHT_FADE: u8 = 0x02;
 const FLAGS3_ENABLE_IMPROVED_RUMBLE: u8 = 0x04;
 
-// Default bit patterns chosen explicitly for readability. Previous code used magic bytes;
-// these constants make intent clear while preserving behaviour.
+// Default bit patterns chosen explicitly for readability.
 const DEFAULT_FLAGS_1: u8 = FLAGS1_ENABLE_RUMBLE_EMULATION
     | FLAGS1_USE_RUMBLE_NO_HAPTICS
     | FLAGS1_ALLOW_RIGHT_TRIGGER_FFB
@@ -684,24 +758,24 @@ impl DualSenseOutput {
         s
     }
 
-    /// Set trigger motor power reduction (0..=7). Value is clamped.
+    /// Set trigger motor power reduction (`0..=7`). Value is clamped.
     pub fn set_trigger_motor_power_reduction(&mut self, v: u8) {
         let t = v.min(7) & 0x0F;
         self.motor_power_level = (self.motor_power_level & 0xF0) | t;
     }
 
-    /// Get trigger motor power reduction (0..=7).
+    /// Get trigger motor power reduction (`0..=7`).
     pub fn get_trigger_motor_power_reduction(&self) -> u8 {
         self.motor_power_level & 0x0F
     }
 
-    /// Set rumble motor power reduction (0..=7). Value is clamped.
+    /// Set rumble motor power reduction (`0..=7`). Value is clamped.
     pub fn set_rumble_motor_power_reduction(&mut self, v: u8) {
         let r = (v.min(7) & 0x0F) << 4;
         self.motor_power_level = (self.motor_power_level & 0x0F) | r;
     }
 
-    /// Get rumble motor power reduction (0..=7)
+    /// Get rumble motor power reduction (`0..=7`).
     pub fn get_rumble_motor_power_reduction(&self) -> u8 {
         (self.motor_power_level >> 4) & 0x0F
     }
@@ -735,7 +809,6 @@ impl DualSenseOutputReportBT {
         hasher.update(&[PS_OUTPUT_CRC32_SEED]);
 
         // 2. Feed the payload bytes (everything except the final 4-byte CRC field)
-        // Compute payload length programmatically to avoid off-by-one errors.
         let total_len = std::mem::size_of::<Self>();
         let crc_len = std::mem::size_of::<u32>();
         let payload_len = total_len - crc_len;
@@ -781,14 +854,14 @@ impl TriggerFFB {
         effect
     }
 
-    /// fully disengages the force feedback motor and turns off force feedback
+    /// Fully disengages the force feedback motor and turns off force feedback
     pub fn disengage() -> Self {
         let mut effect = Self::new_zeroed();
         effect.mode = 0x05;
         effect
     }
 
-    /// Vibration mode. Frequency is in Hertz up to a certain point and then looses granularity and
+    /// Vibration mode. Frequency is in Hertz up to a certain point and then loses granularity and
     /// accuracy. vibration_strength is clamped between 0 and 63
     pub fn vibration(start: u8, frequency: u8, vibration_strength: u8) -> Self {
         let mut effect = Self::new_zeroed();
@@ -799,6 +872,7 @@ impl TriggerFFB {
         effect
     }
 
+    /// Bow trigger effect
     pub fn bow() -> Self {
         let mut effect = Self::new_zeroed();
         effect.mode = 0x22;
