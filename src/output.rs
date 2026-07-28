@@ -17,8 +17,10 @@ pub struct DualSenseOutput {
     // 01 AllowMuteLight1 AllowAudioMute1 AllowLEDColor1 ResetLights1
     // AllowPlayerIndicators1 AllowHapticLowPassFilter1 AllowMotorPowerLevel1 AllowAudioControl(2)1
     pub(crate) flags_2: u8,
+    /// strength of the right side rumble motor
     pub rumble_right: u8, // 02
-    pub rumble_left: u8,  // 03
+    /// strength of the left side rumble motor
+    pub rumble_left: u8, // 03
     /// Headphone volume
     pub volume_headphones: u8, // 04
     /// Speaker volume

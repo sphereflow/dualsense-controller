@@ -415,7 +415,8 @@ impl DualSense {
         }
     }
 
-    /// Getter for [self.last_input]
+    /// Getter for [self.last_input] which is raw input from the device.
+    /// That means no post processing has been done to it.
     pub fn get_last_input(&self) -> DualSenseInput {
         self.last_input
     }
