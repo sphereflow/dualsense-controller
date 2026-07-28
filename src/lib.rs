@@ -88,7 +88,7 @@ impl DualSense {
     }
 
     /// Connects to the controller. This function fails if there is no controller present or if it
-    /// did not manage to open the controller
+    /// did not manage to open the controller.
     pub fn connect(api: &hidapi::HidApi) -> Result<(hidapi::HidDevice, bool), DualSenseError> {
         // 1. Find the first matching device
         let device_info = api

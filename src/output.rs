@@ -722,8 +722,8 @@ impl DualSenseOutput {
             audio_control_flags_1: 0b00001100, // Echo/Noise cancel defaults
             mute_light_mode: 0,
             power_save_mute_control: 0,
-            right_trigger_ffb: TriggerFFB::off(),
-            left_trigger_ffb: TriggerFFB::off(),
+            right_trigger_ffb: TriggerFFB::disengage(),
+            left_trigger_ffb: TriggerFFB::disengage(),
             host_time_stamp: Default::default(),
             motor_power_level: 0,
             audio_control_flags_2: Default::default(),
@@ -816,9 +816,11 @@ pub struct TriggerFFB {
 }
 
 impl TriggerFFB {
-    /// No force feedback
-    pub fn off() -> Self {
-        Self::new_zeroed()
+    /// Fully disengages the force feedback motor and turns off force feedback
+    pub fn disengage() -> Self {
+        let mut effect = Self::new_zeroed();
+        effect.mode = 0x05;
+        effect
     }
 
     /// Initialize with feedback mode. start_position should be in range 0..10
@@ -841,32 +843,36 @@ impl TriggerFFB {
         effect
     }
 
-    /// Initialize with weapon mode
-    /// If start > end there will only be a short impulse at end
+    /// Initialize with weapon mode.
+    /// start will be clamped to its valid range: 2..=7.
+    /// end will be clamped to its valid range: (start + 1)..=8.
+    /// Only the first 3 bits of strength are used => 0..=7
     pub fn weapon(start: u8, end: u8, strength: u8) -> Self {
         let mut effect = Self::new_zeroed();
-        effect.mode = 0x02;
-        effect.parameters[0] = start;
-        effect.parameters[1] = end;
-        effect.parameters[2] = strength;
-        effect
-    }
-
-    /// Fully disengages the force feedback motor and turns off force feedback
-    pub fn disengage() -> Self {
-        let mut effect = Self::new_zeroed();
-        effect.mode = 0x05;
+        effect.mode = 0x25;
+        let start = start.clamp(2, 7);
+        let end = end.clamp(start + 1, 8);
+        let active_zones = (end - start) as u32;
+        let zone_bits = (2_u16.pow(active_zones) - 1) << start;
+        let params01 = zone_bits.to_le_bytes();
+        effect.parameters[0] = params01[0];
+        effect.parameters[1] = params01[1];
+        effect.parameters[2] = strength & 0x07;
         effect
     }
 
     /// Vibration mode. Frequency is in Hertz up to a certain point and then loses granularity and
     /// accuracy. vibration_strength is clamped between 0 and 63
-    pub fn vibration(start: u8, frequency: u8, vibration_strength: u8) -> Self {
+    pub fn vibration(start: u8, frequency: u8, vibration_strengths: [u8; 10]) -> Self {
         let mut effect = Self::new_zeroed();
-        effect.mode = 0x06;
-        effect.parameters[0] = frequency;
-        effect.parameters[1] = vibration_strength.clamp(0, 63);
-        effect.parameters[2] = start;
+        let active_zones = (10 - start.min(10)) as u32;
+        let zone_bits: u16 = (2_u16.pow(active_zones) - 1) << start;
+        let params01 = zone_bits.to_le_bytes();
+        effect.mode = 0x26;
+        effect.parameters[0] = params01[0];
+        effect.parameters[1] = params01[1];
+        pack_strengths(&mut effect.parameters[2..], vibration_strengths);
+        effect.parameters[8] = frequency;
         effect
     }
 
@@ -875,8 +881,13 @@ impl TriggerFFB {
     pub fn bow(start: u8, end: u8, strength: u8, snap_force: u8) -> Self {
         let mut effect = Self::new_zeroed();
         effect.mode = 0x22;
-        effect.parameters[0] = start;
-        effect.parameters[1] = end;
+        let start = start.clamp(2, 7);
+        let end = end.clamp(start + 1, 8);
+        let active_zones = (end - start) as u32;
+        let zone_bits = (2_u16.pow(active_zones) - 1) << start;
+        let params01 = zone_bits.to_le_bytes();
+        effect.parameters[0] = params01[0];
+        effect.parameters[1] = params01[1];
         // lower 3 bits are strength bits 4..=6 are snap_force
         effect.parameters[2] = (strength & 0x07) | ((snap_force & 0x07) << 3);
         effect
