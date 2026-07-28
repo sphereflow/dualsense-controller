@@ -831,7 +831,7 @@ impl TriggerFFB {
     }
 
     /// Initialize with weapon mode
-    /// if start > end there will only be a short impulse at end
+    /// If start > end there will only be a short impulse at end
     pub fn weapon(start: u8, end: u8, strength: u8) -> Self {
         let mut effect = Self::new_zeroed();
         effect.mode = 0x02;
@@ -859,10 +859,15 @@ impl TriggerFFB {
         effect
     }
 
-    /// Bow trigger effect
-    pub fn bow() -> Self {
+    /// Bow trigger effect. Only the lower 3 bits of strength and snap_force are used.
+    /// All other bits are masked out.
+    pub fn bow(start: u8, end: u8, strength: u8, snap_force: u8) -> Self {
         let mut effect = Self::new_zeroed();
         effect.mode = 0x22;
+        effect.parameters[0] = start;
+        effect.parameters[1] = end;
+        // lower 3 bits are strength bits 4..=6 are snap_force
+        effect.parameters[2] = (strength & 0x07) | ((snap_force & 0x07) << 3);
         effect
     }
 }
