@@ -821,12 +821,22 @@ impl TriggerFFB {
         Self::new_zeroed()
     }
 
-    /// Initialize with feedback mode
-    pub fn feedback(start_position: u8, strength: u8) -> Self {
+    /// Initialize with feedback mode. start_position should be in range 0..10
+    /// [strengths] sets the feedback strength for each of the 10 zones.
+    /// Zones bellow [start_position] are ignored.
+    pub fn feedback(start_position: u8, strengths: [u8; 10]) -> Self {
+        // feedback mode is divided into 10 zones
+        // the first 10 bits in the first 2 bytes each represent a zone
+        // bits 0..start_position must be set to 0
+        // bits start_position..10 must be set to 1
+        // set the lowest start_position bits and then shift them up
+        let start_bits: u16 = (2_u16.pow(start_position as u32) - 1) << (start_position);
+        let params01 = start_bits.to_le_bytes();
         let mut effect = Self::new_zeroed();
-        effect.mode = 0x01;
-        effect.parameters[0] = start_position; // Start position (0-255)
-        effect.parameters[1] = strength; // Resistance strength
+        effect.mode = 0x21;
+        effect.parameters[0] = params01[0]; // start position 1st byte
+        effect.parameters[1] = params01[1]; // start position 2nd byte
+        pack_strengths(&mut effect.parameters[2..], strengths);
         effect
     }
 
@@ -870,6 +880,17 @@ impl TriggerFFB {
         effect.parameters[2] = (strength & 0x07) | ((snap_force & 0x07) << 3);
         effect
     }
+}
+
+// packs the strength values into 3 bits per strength value and transfers the packed values to the
+// first 4 bytes of dest
+fn pack_strengths(dest: &mut [u8], strengths: [u8; 10]) {
+    let mut strengths_packed = 0_u32;
+    for (ix, strength) in strengths.iter().copied().enumerate() {
+        strengths_packed |= (strength as u32) & 0x07 << (3 * ix);
+    }
+    let sp_bytes = strengths_packed.to_be_bytes();
+    dest[0..4].copy_from_slice(&sp_bytes);
 }
 
 #[cfg(test)]
