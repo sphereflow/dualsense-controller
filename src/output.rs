@@ -829,8 +829,9 @@ impl TriggerFFB {
         // the first 10 bits in the first 2 bytes each represent a zone
         // bits 0..start_position must be set to 0
         // bits start_position..10 must be set to 1
-        // set the lowest start_position bits and then shift them up
-        let start_bits: u16 = (2_u16.pow(start_position as u32) - 1) << (10 - start_position);
+        // set the lowest active_zones bits and then shift them up by start_position
+        let active_zones = (10 - start_position.min(10)) as u32;
+        let start_bits: u16 = (2_u16.pow(active_zones) - 1) << start_position;
         let params01 = start_bits.to_le_bytes();
         let mut effect = Self::new_zeroed();
         effect.mode = 0x21;
