@@ -2,32 +2,40 @@ use bitflags::bitflags;
 use crc32fast::Hasher;
 use zerocopy::{FromZeros, Immutable, IntoBytes};
 
+/// Main struct for writing output to the controller
+/// with this you can controll rumble motors, the RGB LED, audio volumes and various flags
 #[repr(C, packed)]
 #[derive(IntoBytes, Immutable, FromZeros, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DualSenseOutput {
-    /// 00 EnableRumbleEmulation1 UseRumbleNoHaptics1 AllowRightTriggerFFB1
-    /// AllowLeftTriggerFFB1 AllowHeadphoneVolume1 AllowSpeakerVolume1 AllowMicVolume1
-    /// AllowAudiocontrol(1)1
-    pub flags_1: u8,
+    // 00 EnableRumbleEmulation1 UseRumbleNoHaptics1 AllowRightTriggerFFB1
+    // AllowLeftTriggerFFB1 AllowHeadphoneVolume1 AllowSpeakerVolume1 AllowMicVolume1
+    // AllowAudiocontrol(1)1
+    pub(crate) flags_1: u8,
 
-    /// 01 AllowMuteLight1 AllowAudioMute1 AllowLEDColor1 ResetLights1
-    /// AllowPlayerIndicators1 AllowHapticLowPassFilter1 AllowMotorPowerLevel1 AllowAudioControl(2)1
-    pub flags_2: u8,
-    pub rumble_right: u8,      // 02
-    pub rumble_left: u8,       // 03
+    // 01 AllowMuteLight1 AllowAudioMute1 AllowLEDColor1 ResetLights1
+    // AllowPlayerIndicators1 AllowHapticLowPassFilter1 AllowMotorPowerLevel1 AllowAudioControl(2)1
+    pub(crate) flags_2: u8,
+    pub rumble_right: u8, // 02
+    pub rumble_left: u8,  // 03
+    /// headphone volume
     pub volume_headphones: u8, // 04
-    pub volume_speaker: u8,    // 05
-    pub volume_mic: u8,        // 06
+    /// speaker volume
+    pub volume_speaker: u8, // 05
+    // microphone volume
+    pub volume_mic: u8, // 06
 
-    /// 07 MicSelect2 EchoCancelEnable1 NoiseCancelEnable1 OutputPathSelect2 InputPathSelect2
-    pub audio_control_flags_1: u8,
+    // 07 MicSelect2 EchoCancelEnable1 NoiseCancelEnable1 OutputPathSelect2 InputPathSelect2
+    pub(crate) audio_control_flags_1: u8,
     pub mute_light_mode: u8, // 08
 
-    /// 09 PowerSave(Touch1 Motion1 Haptic1 Audio1)4 Mute(Mic1 Speaker1 Headphone1 Haptic1)4
-    pub power_save_mute_control: u8,
+    // 09 PowerSave(Touch1 Motion1 Haptic1 Audio1)4 Mute(Mic1 Speaker1 Headphone1 Haptic1)4
+    pub(crate) power_save_mute_control: u8,
+    /// Force feedback for the right trigger
     pub right_trigger_ffb: TriggerFFB, // 10-20
-    pub left_trigger_ffb: TriggerFFB,  // 21-31
-    pub host_time_stamp: u32,          // 32-35
+    /// Force feedback for the left trigger
+    pub left_trigger_ffb: TriggerFFB, // 21-31
+    /// Some kind of time stamp
+    pub host_time_stamp: u32, // 32-35
 
     /// 36 TriggerMotorPowerReduction4 RumbleMotorPowerReduction4
     /// in 12.5 % steps both values only have range 0-7
@@ -52,8 +60,7 @@ pub struct DualSenseOutput {
 }
 
 bitflags! {
-    /// Flags corresponding to `flags_1` field in DualSenseOutput
-    pub struct Flags1: u8 {
+    pub(crate) struct Flags1: u8 {
         const ENABLE_RUMBLE_EMULATION    = 0x01;
         const USE_RUMBLE_NO_HAPTICS      = 0x02;
         const ALLOW_RIGHT_TRIGGER_FFB    = 0x04;
@@ -66,8 +73,7 @@ bitflags! {
 }
 
 bitflags! {
-    /// Flags corresponding to `flags_2` field in DualSenseOutput
-    pub struct Flags2: u8 {
+    pub(crate) struct Flags2: u8 {
         const ALLOW_MUTE_LIGHT           = 0x01;
         const ALLOW_AUDIO_MUTE           = 0x02;
         const ALLOW_LED_COLOR            = 0x04;
@@ -81,7 +87,7 @@ bitflags! {
 
 bitflags! {
     /// Flags corresponding to `flags_3` field in DualSenseOutput
-    pub struct Flags3: u8 {
+    pub(crate) struct Flags3: u8 {
         const ALLOW_LIGHT_BRIGHTNESS_CHANGE = 0x01;
         const ALLOW_COLOR_LIGHT_FADE        = 0x02;
         const ENABLE_IMPROVED_RUMBLE        = 0x04;
@@ -90,7 +96,7 @@ bitflags! {
 
 bitflags! {
     /// Flags corresponding to `power_save_mute_control` field
-    pub struct PowerSaveMute: u8 {
+    pub(crate) struct PowerSaveMute: u8 {
         const POWER_SAVE_TOUCH  = 0x01;
         const POWER_SAVE_MOTION = 0x02;
         const POWER_SAVE_HAPTIC = 0x04;
@@ -104,43 +110,53 @@ bitflags! {
 
 impl DualSenseOutput {
     // --- Flags 1 (LSB first) ---
-    pub fn flags1(&self) -> Flags1 {
+    /// Getter for [Flags1]
+    pub(crate) fn flags1(&self) -> Flags1 {
         Flags1::from_bits_truncate(self.flags_1)
     }
-    pub fn set_flags1(&mut self, f: Flags1) {
+    /// Setter for [Flags1]
+    pub(crate) fn set_flags1(&mut self, f: Flags1) {
         self.flags_1 = f.bits();
     }
 
+    /// Getter for [Flags1::ENABLE_RUMBLE_EMULATION]
     pub fn enable_rumble_emulation(&self) -> bool {
         self.flags1().contains(Flags1::ENABLE_RUMBLE_EMULATION)
     }
+    /// Setter for [Flags1::ENABLE_RUMBLE_EMULATION]
     pub fn set_enable_rumble_emulation(&mut self, on: bool) {
         let mut f = self.flags1();
         f.set(Flags1::ENABLE_RUMBLE_EMULATION, on);
         self.set_flags1(f);
     }
 
+    /// Getter for [Flags1::USE_RUMBLE_NO_HAPTICS]
     pub fn use_rumble_no_haptics(&self) -> bool {
         self.flags1().contains(Flags1::USE_RUMBLE_NO_HAPTICS)
     }
+    /// Setter for [Flags1::USE_RUMBLE_NO_HAPTICS]
     pub fn set_use_rumble_no_haptics(&mut self, on: bool) {
         let mut f = self.flags1();
         f.set(Flags1::USE_RUMBLE_NO_HAPTICS, on);
         self.set_flags1(f);
     }
 
+    /// Returns true if force feedback is enabled for the right trigger
     pub fn allow_right_trigger_ffb(&self) -> bool {
         self.flags1().contains(Flags1::ALLOW_RIGHT_TRIGGER_FFB)
     }
+    /// Turns force feedback for the right trigger on or off
     pub fn set_allow_right_trigger_ffb(&mut self, on: bool) {
         let mut f = self.flags1();
         f.set(Flags1::ALLOW_RIGHT_TRIGGER_FFB, on);
         self.set_flags1(f);
     }
 
+    /// Returns true if force feedback is enabled for the left trigger
     pub fn allow_left_trigger_ffb(&self) -> bool {
         self.flags1().contains(Flags1::ALLOW_LEFT_TRIGGER_FFB)
     }
+    /// Turns force feedback for the left trigger on or off
     pub fn set_allow_left_trigger_ffb(&mut self, on: bool) {
         let mut f = self.flags1();
         f.set(Flags1::ALLOW_LEFT_TRIGGER_FFB, on);
@@ -332,10 +348,11 @@ impl DualSenseOutput {
         }
     }
 
-    /// Output path select: bits 4-5
+    /// Getter
     pub fn output_path_select(&self) -> u8 {
         (self.audio_control_flags_1 >> 4) & 0x03
     }
+    /// Setter
     pub fn set_output_path_select(&mut self, sel: u8) {
         self.audio_control_flags_1 =
             (self.audio_control_flags_1 & !(0x03 << 4)) | ((sel & 0x03) << 4)
@@ -405,32 +422,38 @@ impl DualSenseOutput {
         self.set_power_save_flags(f);
     }
 
+    /// Returns true if the microphone are muted
     pub fn mute_mic(&self) -> bool {
         self.power_save_flags().contains(PowerSaveMute::MUTE_MIC)
     }
-    pub fn set_mute_mic(&mut self, on: bool) {
+    /// Turns the speaker on or off
+    pub fn set_mute_mic(&mut self, muted: bool) {
         let mut f = self.power_save_flags();
-        f.set(PowerSaveMute::MUTE_MIC, on);
+        f.set(PowerSaveMute::MUTE_MIC, muted);
         self.set_power_save_flags(f);
     }
 
+    /// Returns true if the speaker is muted
     pub fn mute_speaker(&self) -> bool {
         self.power_save_flags()
             .contains(PowerSaveMute::MUTE_SPEAKER)
     }
-    pub fn set_mute_speaker(&mut self, on: bool) {
+    /// Turns the speaker on or off
+    pub fn set_mute_speaker(&mut self, muted: bool) {
         let mut f = self.power_save_flags();
-        f.set(PowerSaveMute::MUTE_SPEAKER, on);
+        f.set(PowerSaveMute::MUTE_SPEAKER, muted);
         self.set_power_save_flags(f);
     }
 
+    /// Returns true if the headphones are muted
     pub fn mute_headphone(&self) -> bool {
         self.power_save_flags()
             .contains(PowerSaveMute::MUTE_HEADPHONE)
     }
-    pub fn set_mute_headphone(&mut self, on: bool) {
+    /// Turns the headphones on or off
+    pub fn set_mute_headphone(&mut self, muted: bool) {
         let mut f = self.power_save_flags();
-        f.set(PowerSaveMute::MUTE_HEADPHONE, on);
+        f.set(PowerSaveMute::MUTE_HEADPHONE, muted);
         self.set_power_save_flags(f);
     }
 
@@ -508,10 +531,11 @@ impl DualSenseOutput {
         self.set_flags3(f);
     }
 
-    // --- Haptic low pass filter ---
+    /// Returns [true] if the haptic low pass filter is enabled
     pub fn haptic_low_pass_filter_enabled(&self) -> bool {
         (self.haptic_low_pass_filter & 0x01) != 0
     }
+    /// Turns the haptic low pass filter on or off
     pub fn set_haptic_low_pass_filter_enabled(&mut self, on: bool) {
         if on {
             self.haptic_low_pass_filter |= 0x01
@@ -548,50 +572,56 @@ impl DualSenseOutput {
         self.player_light_flags = v
     }
 
+    /// Returns the intensity of the red part of the RGB LED
     pub fn lightbar_red(&self) -> u8 {
         self.lightbar_red
     }
+    /// Sets the intensity of the red part of the RGB LED
     pub fn set_lightbar_red(&mut self, v: u8) {
         self.lightbar_red = v
     }
 
+    /// Returns the intensity of the green part of the RGB LED
     pub fn lightbar_green(&self) -> u8 {
         self.lightbar_green
     }
+    /// Sets the intensity of the green part of the RGB LED
     pub fn set_lightbar_green(&mut self, v: u8) {
         self.lightbar_green = v
     }
 
+    /// Returns the intensity of the blue part of the RGB LED
     pub fn lightbar_blue(&self) -> u8 {
         self.lightbar_blue
     }
+    /// Sets the intensity of the blue part of the RGB LED
     pub fn set_lightbar_blue(&mut self, v: u8) {
         self.lightbar_blue = v
     }
 }
 
 // Bit masks and default values for DualSenseOutput
-pub const FLAGS1_ENABLE_RUMBLE_EMULATION: u8 = 0x01;
-pub const FLAGS1_USE_RUMBLE_NO_HAPTICS: u8 = 0x02;
-pub const FLAGS1_ALLOW_RIGHT_TRIGGER_FFB: u8 = 0x04;
-pub const FLAGS1_ALLOW_LEFT_TRIGGER_FFB: u8 = 0x08;
-pub const FLAGS1_ALLOW_HEADPHONE_VOLUME: u8 = 0x10;
-pub const FLAGS1_ALLOW_SPEAKER_VOLUME: u8 = 0x20;
-pub const FLAGS1_ALLOW_MIC_VOLUME: u8 = 0x40;
-pub const FLAGS1_ALLOW_AUDIO_CONTROL_1: u8 = 0x80;
+const FLAGS1_ENABLE_RUMBLE_EMULATION: u8 = 0x01;
+const FLAGS1_USE_RUMBLE_NO_HAPTICS: u8 = 0x02;
+const FLAGS1_ALLOW_RIGHT_TRIGGER_FFB: u8 = 0x04;
+const FLAGS1_ALLOW_LEFT_TRIGGER_FFB: u8 = 0x08;
+const FLAGS1_ALLOW_HEADPHONE_VOLUME: u8 = 0x10;
+const FLAGS1_ALLOW_SPEAKER_VOLUME: u8 = 0x20;
+const FLAGS1_ALLOW_MIC_VOLUME: u8 = 0x40;
+const FLAGS1_ALLOW_AUDIO_CONTROL_1: u8 = 0x80;
 
-pub const FLAGS2_ALLOW_MUTE_LIGHT: u8 = 0x01;
-pub const FLAGS2_ALLOW_AUDIO_MUTE: u8 = 0x02;
-pub const FLAGS2_ALLOW_LED_COLOR: u8 = 0x04;
-pub const FLAGS2_RESET_LIGHTS: u8 = 0x08;
-pub const FLAGS2_ALLOW_PLAYER_INDICATORS: u8 = 0x10;
-pub const FLAGS2_ALLOW_HAPTIC_LOW_PASS: u8 = 0x20;
-pub const FLAGS2_ALLOW_MOTOR_POWER_LEVEL: u8 = 0x40;
-pub const FLAGS2_ALLOW_AUDIO_CONTROL_2: u8 = 0x80;
+const FLAGS2_ALLOW_MUTE_LIGHT: u8 = 0x01;
+const FLAGS2_ALLOW_AUDIO_MUTE: u8 = 0x02;
+const FLAGS2_ALLOW_LED_COLOR: u8 = 0x04;
+const FLAGS2_RESET_LIGHTS: u8 = 0x08;
+const FLAGS2_ALLOW_PLAYER_INDICATORS: u8 = 0x10;
+const FLAGS2_ALLOW_HAPTIC_LOW_PASS: u8 = 0x20;
+const FLAGS2_ALLOW_MOTOR_POWER_LEVEL: u8 = 0x40;
+const FLAGS2_ALLOW_AUDIO_CONTROL_2: u8 = 0x80;
 
-pub const FLAGS3_ALLOW_LIGHT_BRIGHTNESS_CHANGE: u8 = 0x01;
-pub const FLAGS3_ALLOW_COLOR_LIGHT_FADE: u8 = 0x02;
-pub const FLAGS3_ENABLE_IMPROVED_RUMBLE: u8 = 0x04;
+const FLAGS3_ALLOW_LIGHT_BRIGHTNESS_CHANGE: u8 = 0x01;
+const FLAGS3_ALLOW_COLOR_LIGHT_FADE: u8 = 0x02;
+const FLAGS3_ENABLE_IMPROVED_RUMBLE: u8 = 0x04;
 
 // Default bit patterns chosen explicitly for readability. Previous code used magic bytes;
 // these constants make intent clear while preserving behaviour.
@@ -660,7 +690,7 @@ impl DualSenseOutput {
         self.motor_power_level = (self.motor_power_level & 0xF0) | t;
     }
 
-    /// Get trigger motor power reduction (0..=7)
+    /// Get trigger motor power reduction (0..=7).
     pub fn get_trigger_motor_power_reduction(&self) -> u8 {
         self.motor_power_level & 0x0F
     }
@@ -685,24 +715,17 @@ impl Default for DualSenseOutput {
 
 #[repr(C, packed)]
 #[derive(IntoBytes, FromZeros, Immutable, Debug, Clone, Copy)]
-pub struct DualSenseOutputReportUSB {
-    report_id: u8, // OUTPUT_REPORT_USB_ID
-    pub base: DualSenseOutput,
-}
-
-#[repr(C, packed)]
-#[derive(IntoBytes, FromZeros, Immutable, Debug, Clone, Copy)]
-pub struct DualSenseOutputReportBT {
-    pub report_id: u8,            // OUTPUT_REPORT_BT_ID
-    pub seq_number_and_flags: u8, // Unknown1 EnableHID1 Unknown2 SequenceNumber4
-    pub tag: u8,                  // OUTPUT_REPORT_BT_TAG
-    pub base: DualSenseOutput,
-    pub reserved: [u8; 24],
-    pub crc32: u32,
+pub(crate) struct DualSenseOutputReportBT {
+    pub(crate) report_id: u8,            // OUTPUT_REPORT_BT_ID
+    pub(crate) seq_number_and_flags: u8, // Unknown1 EnableHID1 Unknown2 SequenceNumber4
+    pub(crate) tag: u8,                  // OUTPUT_REPORT_BT_TAG
+    pub(crate) base: DualSenseOutput,
+    pub(crate) reserved: [u8; 24],
+    pub(crate) crc32: u32,
 }
 
 impl DualSenseOutputReportBT {
-    pub fn add_crc(&mut self) {
+    pub(crate) fn add_crc(&mut self) {
         // DualSense Bluetooth hardware requires the 0xA2 seed injected before the payload
         const PS_OUTPUT_CRC32_SEED: u8 = 0xA2;
 
@@ -722,32 +745,63 @@ impl DualSenseOutputReportBT {
     }
 }
 
+/// Force feedback component of [DualSenseOutput]
 #[repr(C, packed)]
 #[derive(IntoBytes, FromZeros, Immutable, Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct TriggerFFB {
-    pub mode: u8, // 0: Off, 1: Feedback, 2: Weapon, 6: Vibration
+    /// Force feedback mode for more info on this variable see the various functions for this struct
+    pub mode: u8,
+    /// Depending on [TriggerFFB::mode] representing different forces or positions
     pub parameters: [u8; 10],
 }
 
 impl TriggerFFB {
+    /// No force feedback
     pub fn off() -> Self {
         Self::new_zeroed()
     }
 
-    pub fn feedback(position: u8, strength: u8) -> Self {
+    /// Initialize with feedback mode
+    pub fn feedback(start_position: u8, strength: u8) -> Self {
         let mut effect = Self::new_zeroed();
         effect.mode = 0x01;
-        effect.parameters[0] = position; // Start position (0-255)
+        effect.parameters[0] = start_position; // Start position (0-255)
         effect.parameters[1] = strength; // Resistance strength
         effect
     }
 
+    /// Initialize with weapon mode
+    /// if start > end there will only be a short impulse at end
     pub fn weapon(start: u8, end: u8, strength: u8) -> Self {
         let mut effect = Self::new_zeroed();
         effect.mode = 0x02;
         effect.parameters[0] = start;
         effect.parameters[1] = end;
         effect.parameters[2] = strength;
+        effect
+    }
+
+    /// fully disengages the force feedback motor and turns off force feedback
+    pub fn disengage() -> Self {
+        let mut effect = Self::new_zeroed();
+        effect.mode = 0x05;
+        effect
+    }
+
+    /// Vibration mode. Frequency is in Hertz up to a certain point and then looses granularity and
+    /// accuracy. vibration_strength is clamped between 0 and 63
+    pub fn vibration(start: u8, frequency: u8, vibration_strength: u8) -> Self {
+        let mut effect = Self::new_zeroed();
+        effect.mode = 0x06;
+        effect.parameters[0] = frequency;
+        effect.parameters[1] = vibration_strength.clamp(0, 63);
+        effect.parameters[2] = start;
+        effect
+    }
+
+    pub fn bow() -> Self {
+        let mut effect = Self::new_zeroed();
+        effect.mode = 0x22;
         effect
     }
 }
