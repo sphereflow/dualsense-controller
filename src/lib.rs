@@ -139,8 +139,6 @@ impl DualSense {
     ) -> Result<(), DualSenseError> {
         // enable_extended_mode(&device);
         let mut input_report_buffer = [0u8; 128];
-        let mut input_packet_num = 0;
-        let mut output_packet_num = 0;
         let mut output_seq_tag_bt: u8 = 0;
 
         while running.load(Ordering::Relaxed) {
@@ -170,10 +168,6 @@ impl DualSense {
                     output_seq_tag_bt += 1;
                     output_seq_tag_bt %= 16;
                 }
-                output_packet_num += 1;
-                if output_packet_num % 100 == 0 {
-                    dbg!(output_packet_num);
-                }
             }
 
             // 2. Perform a blocking read with a short timeout (e.g. 4ms) to wait for controller data.
@@ -187,7 +181,6 @@ impl DualSense {
                                 &input_report_buffer[..size],
                             ) {
                                 send_input.send(report.0.into())?;
-                                input_packet_num += 1;
                             }
                         } else {
                             type Rep = Report<DualSenseInput, 1>;
@@ -195,7 +188,6 @@ impl DualSense {
                                 Rep::try_read_from_prefix(&input_report_buffer[..size])
                             {
                                 send_input.send(report.0.base)?;
-                                input_packet_num += 1;
                             }
                         }
                     }
@@ -204,7 +196,6 @@ impl DualSense {
                             &input_report_buffer[..size],
                         ) {
                             send_input.send(report.0.base)?;
-                            input_packet_num += 1;
                         }
                     }
                     byte => {
@@ -218,10 +209,6 @@ impl DualSense {
                     eprintln!("Error reading from DualSense: {}", e);
                     return Err(e.into());
                 }
-            }
-
-            if input_packet_num % 1000 == 0 && input_packet_num > 0 {
-                dbg!(input_packet_num);
             }
         }
         Ok(())
