@@ -830,7 +830,7 @@ impl TriggerFFB {
         // bits 0..start_position must be set to 0
         // bits start_position..10 must be set to 1
         // set the lowest start_position bits and then shift them up
-        let start_bits: u16 = (2_u16.pow(start_position as u32) - 1) << (start_position);
+        let start_bits: u16 = (2_u16.pow(start_position as u32) - 1) << (10 - start_position);
         let params01 = start_bits.to_le_bytes();
         let mut effect = Self::new_zeroed();
         effect.mode = 0x21;
@@ -887,9 +887,9 @@ impl TriggerFFB {
 fn pack_strengths(dest: &mut [u8], strengths: [u8; 10]) {
     let mut strengths_packed = 0_u32;
     for (ix, strength) in strengths.iter().copied().enumerate() {
-        strengths_packed |= (strength as u32) & 0x07 << (3 * ix);
+        strengths_packed |= ((strength as u32) & 0x07) << (3 * ix);
     }
-    let sp_bytes = strengths_packed.to_be_bytes();
+    let sp_bytes = strengths_packed.to_le_bytes();
     dest[0..4].copy_from_slice(&sp_bytes);
 }
 
