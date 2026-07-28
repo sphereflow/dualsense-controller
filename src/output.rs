@@ -852,8 +852,7 @@ impl TriggerFFB {
         effect.mode = 0x25;
         let start = start.clamp(2, 7);
         let end = end.clamp(start + 1, 8);
-        let active_zones = (end - start) as u32;
-        let zone_bits = (2_u16.pow(active_zones) - 1) << start;
+        let zone_bits = (1_u16 << end) | (1_u16 << start);
         let params01 = zone_bits.to_le_bytes();
         effect.parameters[0] = params01[0];
         effect.parameters[1] = params01[1];
